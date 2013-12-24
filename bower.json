@@ -1,0 +1,18 @@
+{
+  "name": "nodebots",
+  "version": "0.0.1",
+  "authors": [
+    "Colin Megill <colinmegill@gmail.com>"
+  ],
+  "description": "Nodebots.",
+  "main": "index.html",
+  "license": "MIT",
+  "private": true,
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ]
+}
