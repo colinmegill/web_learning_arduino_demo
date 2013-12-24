@@ -4,14 +4,38 @@
 <style type="text/css">
 
 
-
+input {
+	padding: 20px;
+	border: none;
+	border-bottom: 10px solid black;
+	width:80%;
+}
 
 
 </style>
 </head>
 <body>
 
-hi :)
+<h1> A keyboard for an lcd. Type and see! </h1>
 
+<input id="keyboard" placeholder="Type here..."></textarea>
+
+
+<script src="bower_components/jquery/jquery.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  var socket = io.connect('http://localhost');
+
+  $(document).ready(function(){
+  	$('#keyboard').focus()
+  	$('#keyboard').keyup(function(){
+  		var data = $('#keyboard').val()
+  		socket.emit('typing', data);
+  		console.log(data)
+  	})
+  })
+
+ 
+</script>
 </body>
 </html>
