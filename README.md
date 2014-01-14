@@ -2,9 +2,9 @@
 
 ###Up & Running
 
-		`$ git clone`
-		`$ npm install`
-		`$ node app.js`
+		$ git clone
+		$ npm install
+		$ node app.js
 
 
 ###Servo API
