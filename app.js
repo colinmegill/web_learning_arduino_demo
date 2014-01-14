@@ -1,42 +1,25 @@
-var express = require('express');
-var io = require('socket.io');
-var app = express()
-  , server = require('http').createServer(app)
-  , io = io.listen(server);
-var five = require("johnny-five"),
-    board, lcd;
-
-server.listen(8080);
-
-app.use(express.static(__dirname));
-
-// app.get('/', function(req, res){
-// 	res.sendfile(__dirname + '/index.html')
-// })
-
-/* begin robot */
+var five = require("johnny-five");
+var board;
+var servo;
 
 board = new five.Board();
 
 board.on("ready", function() {
 
-  lcd = new five.LCD({
-    // LCD pin name  RS  EN  DB4 DB5 DB6 DB7
-    // Arduino pin # 7    8   9   10  11  12
-    pins: [ 7, 8, 9, 10, 11, 12 ],
+  var range = [2, 158]
+
+  servo = new five.Servo({pin:10, range: range});
+  photoresistor = new five.Sensor({pin: "A0"})
+
+  board.repl.inject({
+    photoresistor: photoresistor,
+    servo: servo
   });
 
-  lcd.on("ready", function() {
-    io.sockets.on('connection', function (socket){
-  		socket.on('typing', function (data) {
-  		  lcd.clear().print(data.toString());
-  		  console.log(data)
-  		});    	
-    })
-  });
+  servo.center();
 
-  this.repl.inject({
-    lcd: lcd
+  photoresistor.scale(range).on("data", function() {
+    console.log( "Normalized value: " + this.normalized + "  Scaled Value: " + this.scaled );
+    servo.to(Math.floor(this.scaled));
   });
-
 });
