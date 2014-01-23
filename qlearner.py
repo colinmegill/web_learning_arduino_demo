@@ -1,21 +1,57 @@
-import time 
+#!/usr/bin/python
+
 import sys
+import qlib
+import io
+import argparse
 
-def dummy(): 
-	for i in range(0,10):
-		sys.stdout.write("dummy process " + str(i+1) + "/10\n")
-		time.sleep(0.2) 
+parser = argparse.ArgumentParser()
+parser.add_argument("--relDistanceTh",type=float,default=0.05)
+parser.add_argument("--learnRate",type=float,default=0.3)
+parser.add_argument("--replayMemorySize",type=int,default=100)
 
-	for line in sys.stdin:
-		sys.stdout.write(line.rstrip() + ' BOOM\n')
+args = parser.parse_args()
 
-	#var = sys.stdin.readlines()
+inStream  = sys.stdin
+outStream = sys.stdout
 
-	#sys.stdout.write(str(var) + '\n')
+value = qlib.ValueFunction()
 
-	for line in sys.stdin:
-		sys.stdout.write('BOOM\n')
+actions = [(idx,1) for idx in range(4)] + [(idx,-1) for idx in range(4)]
 
-if __name__ =='__main__' : 
-    dummy() 
+log = open('log','w')
+
+replayMemory = []
+
+for line in inStream:
+
+    # Read one line of input
+    ID,currState,relDistance = io.parseLine(line)
+
+    if relDistance < args.relDistanceTh:
+
+        qlib.updateValue(value, replayMemory, args.learnRate, log = log)
+        outStream.write('RESET_ACTION\n')
+        replayMemory = []
+
+    else:
+        
+        action = qlib.getNextAction(value,currState,actions)
+        replayMemory.append( (currState,action) )
+
+        if len(replayMemory) < args.replayMemorySize:
+            outStream.write(' '.join(map(str,['DELTA_ACTION',action[0],action[1]])) + '\n')
+        else:
+            outStream.write('RESET_ACTION\n')
+            replayMemory = []
+
+
+
+
+
+
+
+
+
+
 
