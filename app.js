@@ -1,86 +1,73 @@
+var express = require('express');
+var io = require('socket.io');
+var app = express();
+var server = require('http').createServer(app);
+var io = io.listen(server);
 var five = require("johnny-five");
 var board;
 var servo;
+var STATE = [];
+var GOAL = 30;
+var DISTANCE;
 
-var util = require('util');
-var spawn = require('child_process').spawn;
-var qlearner = spawn('python', ['qlearner.py']); 
+server.listen(3000);
+app.use(express.static(__dirname));
 
 
-qlearner.stdout.pipe(process.stdout, { end: false });
-process.stdin.resume();
-process.stdin.pipe(qlearner.stdin, { end: false });
 
-qlearner.stdin.on('end', function(){
-  process.stdout.write('qlearner stream ended.');
+board = new five.Board();
+
+board.on("ready", function() {
+
+  var range = [0, 100]
+
+  photoresistorGreen = new five.Sensor({pin: "A0"});
+  photoresistorYellow = new five.Sensor({pin: "A1"});
+  photoresistorRed = new five.Sensor({pin: "A2"});
+  photoresistorBlue = new five.Sensor({pin: "A3"});
+
+  green = new five.Led({ pin: 11 })
+  yellow = new five.Led({ pin: 10 })
+  red = new five.Led({ pin: 6 })
+  blue = new five.Led({ pin: 5 })
+
+  board.repl.inject({
+    green: green,
+    yellow: yellow,
+    red: red,
+    blue: blue 
+  });
+
+  io.sockets.on('connection', function (socket){
+    var check = setInterval(function(){
+      console.log(STATE)
+      SUM = STATE[0] + STATE[1] + STATE[2] + STATE[3]
+      DISTANCE = Math.abs((GOAL - SUM)/GOAL)
+      var penguin = {distance: DISTANCE, state: STATE};
+      socket.emit('reading', penguin);
+  
+      green.brightness(Math.floor(Math.random()*255));
+      yellow.brightness(Math.floor(Math.random()*255));
+      red.brightness(Math.floor(Math.random()*255));
+      blue.brightness(Math.floor(Math.random()*255));
+  
+    }, 250)
+  })
+
+  photoresistorGreen.scale(range).on("data", function() {
+    STATE[0] = Math.floor(this.scaled);
+  });
+
+  photoresistorYellow.scale(range).on("data", function() {
+    STATE[1] = Math.floor(this.scaled);
+  });
+
+  photoresistorRed.scale(range).on("data", function() {
+    STATE[2] = Math.floor(this.scaled);
+  });
+
+  photoresistorBlue.scale(range).on("data", function() {
+    STATE[3] = Math.floor(this.scaled);
+  });
+
 });
-
-qlearner.on('exit', function(code){
-  process.exit(code);
-});
-
-
-// qlearner.stdin.write('STATE 0 0 0 0 1.0\n');
-// qlearner.stdin.end();
-
-// qlearner.stdout.on('data', function (data) { 
-//   util.print(data)
-// }); 
-
-qlearner.stderr.on('data', function (data) {
-  console.log('python stderr: ' + data)
-})
-
-/*
-
-node will capture from the child process
-1. action to increment LED: DELTA_ACTION
-2. reset LEDs to 0: RESET_ACTION
-
-could send snapshot of state of board, wait for action
-
-normalize photoresistor
-
-DISTANCE
-
-node: increment blue
-board: blue increments
-board: photoresistor checks value
-node: receives photoresistor value
-node: sends data to python
-python: calculates the next action to take - could be delta or reset, if delta, 0 1 2 3 and + or - 
-node: recieves action which could be reset or delta - resets state 
-
-
-
-node has to know about
-1. intensity of LED
-2. state of board
-
-
-*/
-
-
-
-
-// board = new five.Board();
-
-// board.on("ready", function() {
-
-//   var range = [2, 158]
-
-//   servo = new five.Servo({pin:10, range: range});
-//   photoresistor = new five.Sensor({pin: "A0"})
-
-//   board.repl.inject({
-//     photoresistor: photoresistor,
-//     servo: servo
-//   });
-
-//   servo.center();
-
-//   photoresistor.scale(range).on("data", function() {
-//     console.log( "Normalized value: " + this.normalized + "  Scaled Value: " + this.scaled );
-//     servo.to(Math.floor(this.scaled));
-//   });
-// });
