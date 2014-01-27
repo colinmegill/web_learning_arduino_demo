@@ -13,11 +13,23 @@ parser.add_argument("--relDistanceTh",
                     default = 0.05,
                     help = 'Relative distance, how close should we get to the goal.')
 
+parser.add_argument("--epsilon",
+                    metavar = '[0..1]',
+                    type = float,
+                    default = 0.1,
+                    help = 'Randomization parameter in the epsilon-greedy exploration.')
+
 parser.add_argument("--learnRate",
                     metavar = '[0..1]',
                     type = float,
                     default = 0.3,
                     help = 'How much weight is given to the reward obtained by the new training sequence.')
+
+parser.add_argument("--discountRate",
+                    metavar = '[0..1]',
+                    type = float,
+                    default = 0.1,
+                    help = 'How much future values are discounted during update by delayed reward.')
 
 parser.add_argument("--replayMemorySize",
                     metavar = '[1..n]',
@@ -30,7 +42,9 @@ args = parser.parse_args()
 inStream  = sys.stdin
 outStream = sys.stdout
 
-value = qlib.ValueFunction()
+value = qlib.ValueFunction(epsilon = args.epsilon,
+                           learnRate = args.learnRate,
+                           discountRate = args.discountRate)
 
 actions = [(idx,1) for idx in range(4)] + [(idx,-1) for idx in range(4)]
 
@@ -46,8 +60,12 @@ for line in inStream:
     # If the state is close enough to the target...
     if relDistance < args.relDistanceTh:
 
+        # Currently we consider fixed reward.
+        # This should really come from the controller application
+        reward = 1.0
+        
         # We can update the value function based on the replay memory
-        value.update(replayMemory, args.learnRate, log = log)
+        value.updateValueByDelayedReward(replayMemory, reward, log = log)
 
         # And send a reset action back to the controller
         outStream.write('RESET_ACTION\n')
@@ -58,7 +76,7 @@ for line in inStream:
     else:
 
         # If we are not yet close enough to the goal, sample new action
-        action = qlib.getNextAction(value,currState,actions)
+        action = value.getEpsilonGreedyAction(currState,actions)
 
         # Update replay memory
         replayMemory.append( (currState,action) )
