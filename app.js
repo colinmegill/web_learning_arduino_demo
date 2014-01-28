@@ -6,17 +6,42 @@ var io = io.listen(server);
 var five = require("johnny-five");
 var board;
 var servo;
+
+// Store state of the system
+// Here, state is the vector of light intensities
+// with some discretization and bucketization
 var STATE = [];
+
+// What is the goal, which is the 
+// sum of the intensities of the photo sensors
 var GOAL = 30;
+
+// And how far are we from the goal
 var DISTANCE;
 
-server.listen(3000);
+// Create Getopt instance, bind option 'help' to
+// default action, and parse command line
+opt = require('node-getopt').create([
+  ['' , 'device=DEVICE'  , 'Which device to use'],
+  ['',  'port=PORT'      , 'Which port to use'],
+  ['h' , 'help'             , 'display this help'],
+])
+.bindHelp()
+.parseSystem();
+
+// Create a short cut to the arguments
+var args = opt['options'];
+
+// Which port to listen
+server.listen(args['port']);
 app.use(express.static(__dirname));
 
+// Establish a connection to the board
+board = new five.Board({
+  port: args['device']
+});
 
-
-board = new five.Board();
-
+// When the board is ready, fire up this callback function
 board.on("ready", function() {
 
   var range = [0, 100]

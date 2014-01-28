@@ -2,8 +2,9 @@
 
 ###Up & Running
 
-		$ git clone
-		$ npm install
+		$ git clone https://github.com/colinmegill/web_learning_arduino_demo.git
+		$ npm install express socket.io johnny-five node-getopt
+		$ nosetests
 		$ node app.js
 
 
