@@ -5,7 +5,8 @@
 		$ git clone https://github.com/colinmegill/web_learning_arduino_demo.git
 		$ npm install express socket.io johnny-five node-getopt
 		$ nosetests
-		$ node app.js
+		$ node app.js --port 3000
+		$ node app.js --port 3000 --device /dev/ttyS0
 
 
 ###Servo API
