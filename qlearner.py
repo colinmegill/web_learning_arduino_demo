@@ -57,6 +57,8 @@ for line in inStream:
     # Read one line of input
     ID,currState,relDistance = io.parseLine(line)
 
+    log.write( str(currState) + ' ' + str(relDistance) + '\n')
+    
     # If the state is close enough to the target...
     if relDistance < args.relDistanceTh:
 
@@ -68,6 +70,7 @@ for line in inStream:
         value.updateValueByDelayedReward(replayMemory, reward, log = log)
 
         # And send a reset action back to the controller
+        log.write('RESET_ACTION\n')
         outStream.write('RESET_ACTION\n')
         outStream.flush()
 
@@ -86,12 +89,15 @@ for line in inStream:
         if len(replayMemory) < args.replayMemorySize:
 
             # Send the delta action to the controller
-            outStream.write(' '.join(map(str,['DELTA_ACTION',action[0],action[1]])) + '\n')
+            msg = ' '.join(map(str,['DELTA_ACTION',action[0],action[1]])) + '\n'
+            log.write(msg)
+            outStream.write(msg)
             outStream.flush()
 
         else:
 
             # Otherwise send a reset action to the controller
+            log.write('RESET_ACTION\n')
             outStream.write('RESET_ACTION\n')
             outStream.flush()
 

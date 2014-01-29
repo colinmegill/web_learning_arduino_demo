@@ -10,6 +10,21 @@ var util = require('util');
 var spawn = require('child_process').spawn;
 var qlearner = spawn('python', ['qlearner.py']); 
 
+// Store state of the system
+// Here, state is the vector of light intensities
+// with some discretization and bucketization
+var STATE = [];
+
+// What is the goal, which is the 
+// sum of the intensities of the photo sensors
+var GOAL = 200;
+
+// And how far are we from the goal
+var DISTANCE;
+
+// Jow much brightness is added/removed per action
+var deltas = [10,10,10,10]
+
 qlearner.stdin.on('end', function(){
   process.stdout.write('qlearner stream ended.');
 });
@@ -23,21 +38,18 @@ qlearner.stderr.on('data', function (data) {
 })
 
 /* this data will be piped to a more appropriate place */
-qlearner.stdout.on('data', function (buffer) { 
+qlearner.stdout.on('data', function (buffer) {
+
+  var str   = buffer.toString('utf8');
+  var pinID = parseInt(str.split(' ')[1]);
+  var sign  = parseInt(str.split(' ')[2]);
+
+  var newBrightness = leds[pinID].value + sign * deltas[pinID];
+
+  leds[pinID].brightness( newBrightness );
   console.log(buffer.toString('utf8'));
 }); 
 
-// Store state of the system
-// Here, state is the vector of light intensities
-// with some discretization and bucketization
-var STATE = [];
-
-// What is the goal, which is the 
-// sum of the intensities of the photo sensors
-var GOAL = 30;
-
-// And how far are we from the goal
-var DISTANCE;
 
 
 // Create Getopt instance, bind option 'help' to
@@ -67,22 +79,29 @@ board.on("ready", function() {
 
   var range = [0, 100]
 
-  photoresistorGreen = new five.Sensor({pin: "A0"});
+  photoresistorGreen  = new five.Sensor({pin: "A0"});
   photoresistorYellow = new five.Sensor({pin: "A1"});
-  photoresistorRed = new five.Sensor({pin: "A2"});
-  photoresistorBlue = new five.Sensor({pin: "A3"});
+  photoresistorRed    = new five.Sensor({pin: "A2"});
+  photoresistorBlue   = new five.Sensor({pin: "A3"});
 
-  green = new five.Led({ pin: 11 })
+  green  = new five.Led({ pin: 11 })
   yellow = new five.Led({ pin: 10 })
-  red = new five.Led({ pin: 6 })
-  blue = new five.Led({ pin: 5 })
+  red    = new five.Led({ pin: 6  })
+  blue   = new five.Led({ pin: 5  })
 
+  leds = [green,yellow,red,blue];
+  
   board.repl.inject({
     green: green,
     yellow: yellow,
     red: red,
     blue: blue 
   });
+
+  green.brightness(0);
+  yellow.brightness(0);
+  red.brightness(0);
+  blue.brightness(0);
 
   io.sockets.on('connection', function (socket){
     var check = setInterval(function(){
@@ -91,13 +110,8 @@ board.on("ready", function() {
       DISTANCE = Math.abs((GOAL - SUM)/GOAL)
       var penguin = {distance: DISTANCE, state: STATE};
       socket.emit('reading', penguin);
-  
-      green.brightness(Math.floor(Math.random()*255));
-      yellow.brightness(Math.floor(Math.random()*255));
-      red.brightness(Math.floor(Math.random()*255));
-      blue.brightness(Math.floor(Math.random()*255));
-  
-      qlearner.stdin.write('STAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAATE ' + '5 ' + '6 ' + '7 ' + '8 ' + '1\n');
+    
+      qlearner.stdin.write('STAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAATE ' + STATE[0] + ' ' + STATE[1] + ' ' + STATE[2] + ' ' + STATE[3] + ' ' + DISTANCE + '\n');
 
     }, 250)
   })
