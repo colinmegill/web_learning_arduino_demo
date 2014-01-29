@@ -5,11 +5,6 @@ var spawn = require('child_process').spawn;
 
 var qlearner = spawn('python', ['qlearner.py']); 
 
-
-qlearner.stdout.pipe(process.stdout, { end: false });
-process.stdin.resume();
-process.stdin.pipe(qlearner.stdin, { end: false });
-
 qlearner.stdin.on('end', function(){
   process.stdout.write('qlearner stream ended.');
 });
@@ -18,17 +13,19 @@ qlearner.on('exit', function(code){
   process.exit(code);
 });
 
-
-// qlearner.stdin.write('STATE 0 0 0 0 1.0\n');
-// qlearner.stdin.end();
-
-// qlearner.stdout.on('data', function (data) { 
-//   util.print(data)
-// }); 
+qlearner.stdout.on('data', function (data) { 
+  util.print(data)
+}); 
 
 qlearner.stderr.on('data', function (data) {
   console.log('python stderr: ' + data)
 })
+
+
+
+// qlearner.stdin.write('STAATE 0 0 0 0 1.0\n');
+// qlearner.stdin.end();
+
 
 /*
 

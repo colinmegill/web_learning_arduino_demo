@@ -69,6 +69,7 @@ for line in inStream:
 
         # And send a reset action back to the controller
         outStream.write('RESET_ACTION\n')
+        outStream.flush()
 
         # Finish things up by erasing the replay memory, so that the new episode can start
         replayMemory = []
@@ -86,11 +87,13 @@ for line in inStream:
 
             # Send the delta action to the controller
             outStream.write(' '.join(map(str,['DELTA_ACTION',action[0],action[1]])) + '\n')
+            outStream.flush()
 
         else:
 
             # Otherwise send a reset action to the controller
             outStream.write('RESET_ACTION\n')
+            outStream.flush()
 
             # And erase replay memory, because we'll start a new episode
             replayMemory = []

@@ -6,6 +6,26 @@ var io = io.listen(server);
 var five = require("johnny-five");
 var board;
 var servo;
+var util = require('util');
+var spawn = require('child_process').spawn;
+var qlearner = spawn('python', ['qlearner.py']); 
+
+qlearner.stdin.on('end', function(){
+  process.stdout.write('qlearner stream ended.');
+});
+
+qlearner.on('exit', function(code){
+  process.exit(code);
+});
+
+qlearner.stderr.on('data', function (data) {
+  console.log('python stderr: ' + data);
+})
+
+/* this data will be piped to a more appropriate place */
+qlearner.stdout.on('data', function (buffer) { 
+  console.log(buffer.toString('utf8'));
+}); 
 
 // Store state of the system
 // Here, state is the vector of light intensities
@@ -18,6 +38,7 @@ var GOAL = 30;
 
 // And how far are we from the goal
 var DISTANCE;
+
 
 // Create Getopt instance, bind option 'help' to
 // default action, and parse command line
@@ -76,6 +97,8 @@ board.on("ready", function() {
       red.brightness(Math.floor(Math.random()*255));
       blue.brightness(Math.floor(Math.random()*255));
   
+      qlearner.stdin.write('STAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAATE ' + '5 ' + '6 ' + '7 ' + '8 ' + '1\n');
+
     }, 250)
   })
 
