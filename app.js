@@ -8,22 +8,54 @@ var board;
 var servo;
 var util = require('util');
 var spawn = require('child_process').spawn;
-var qlearner = spawn('python', ['qlearner.py']); 
 
-// Store state of the system
+// The learner can take input arguments, 
+// which we should pass so as to make
+// the app easier to configure
+var qlearner = spawn('python', ['qlearner.py',
+    '--relDistanceTh'   ,'0.05',
+    '--learnRate'       ,'0.5',
+    '--discountRate'    ,'0.1',
+    '--replayMemorySize','100']) 
+
+// Store state of the system.
 // Here, state is the vector of light intensities
 // with some discretization and bucketization
-var STATE = [];
+var state    = [0,0,0,0];
+
+// The raw state is same as the state, but no
+// discretization or bucketization has been added
+var rawState = [0,0,0,0];
 
 // What is the goal, which is the 
 // sum of the intensities of the photo sensors
-var GOAL = 200;
+var goal = 20;
 
 // And how far are we from the goal
-var DISTANCE;
+var relDistance;
 
 // Jow much brightness is added/removed per action
-var deltas = [10,10,10,10]
+var deltas = [3,3,3,3]
+
+// We will store the minimum and maximum readings of the photo sensors
+// so that our scaling eliminates the ambient lighting.
+var minReading = 20;
+var maxReading = 50;
+
+// How many buckets per scaled reading? 
+var minBucket = 0;
+var maxBucket = 9;
+
+var scaledSensorReading = function(x) {
+
+  var val = Math.floor( (maxBucket - minBucket) * ( x - minReading ) / ( maxReading - minReading ) + minBucket );
+
+  val = val < minBucket ? minBucket : val;
+  val = val > maxBucket ? maxBucket : val;
+    
+  return val;
+
+};
 
 qlearner.stdin.on('end', function(){
   process.stdout.write('qlearner stream ended.');
@@ -40,14 +72,36 @@ qlearner.stderr.on('data', function (data) {
 /* this data will be piped to a more appropriate place */
 qlearner.stdout.on('data', function (buffer) {
 
-  var str   = buffer.toString('utf8');
-  var pinID = parseInt(str.split(' ')[1]);
-  var sign  = parseInt(str.split(' ')[2]);
+  var str    = buffer.toString('utf8');
+  var action = str.split(' ')[0];
 
-  var newBrightness = leds[pinID].value + sign * deltas[pinID];
+  if ( action === 'DELTA_ACTION' ) {
 
-  leds[pinID].brightness( newBrightness );
+    // Which LED are we going to touch?
+    var pinID  = parseInt(str.split(' ')[1]);
+
+    // Are we increasing or decreasing the brightness?
+    var sign   = parseInt(str.split(' ')[2]);
+
+    // What is the new brightness value?
+    var newBrightness = leds[pinID].value + sign * deltas[pinID];
+
+    // Assign the LED new brightness value 
+    leds[pinID].brightness( newBrightness );
+
+  } else if ( action === 'RESET_ACTION' ) {
+
+    // If reset action is sent, we'll turn all
+    // LEDs off.
+    leds[0].brightness(0);
+    leds[1].brightness(0);
+    leds[2].brightness(0);
+    leds[3].brightness(0);
+
+  }
+
   console.log(buffer.toString('utf8'));
+
 }); 
 
 
@@ -77,59 +131,87 @@ board = new five.Board({
 // When the board is ready, fire up this callback function
 board.on("ready", function() {
 
-  var range = [0, 100]
 
-  photoresistorGreen  = new five.Sensor({pin: "A0"});
-  photoresistorYellow = new five.Sensor({pin: "A1"});
-  photoresistorRed    = new five.Sensor({pin: "A2"});
-  photoresistorBlue   = new five.Sensor({pin: "A3"});
+  sensorGreen  = new five.Sensor({pin: "A0"});
+  sensorYellow = new five.Sensor({pin: "A1"});
+  sensorRed    = new five.Sensor({pin: "A2"});
+  sensorBlue   = new five.Sensor({pin: "A3"});
 
-  green  = new five.Led({ pin: 11 })
-  yellow = new five.Led({ pin: 10 })
-  red    = new five.Led({ pin: 6  })
-  blue   = new five.Led({ pin: 5  })
+  sensors = [sensorGreen, sensorYellow, sensorRed, sensorBlue ]
 
-  leds = [green,yellow,red,blue];
-  
+  ledGreen  = new five.Led({ pin: 11 })
+  ledYellow = new five.Led({ pin: 10 })
+  ledRed    = new five.Led({ pin: 6  })
+  ledBlue   = new five.Led({ pin: 5  })
+
+  leds = [ledGreen,ledYellow,ledRed,ledBlue];
+
   board.repl.inject({
-    green: green,
-    yellow: yellow,
-    red: red,
-    blue: blue 
+    green:   ledGreen,
+    yellow:  ledYellow,
+    red:     ledRed,
+    blue:    ledBlue,
+    leds:    leds,
+    sensors: sensors
   });
 
-  green.brightness(0);
-  yellow.brightness(0);
-  red.brightness(0);
-  blue.brightness(0);
+  ledGreen.brightness(0);
+  ledYellow.brightness(0);
+  ledRed.brightness(0);
+  ledBlue.brightness(0);
 
+  // We will get the minimum intensity reading now that all LEDs are off.
+  // This minimum intensity corresponds to the surrounding lighting.
+  // NOTE: how do we get proper minimum and maximum readings so that 
+  // all sensor readings can be normalized to a preset range?
+  //minReading = sensorGreen.value;
+    
   io.sockets.on('connection', function (socket){
     var check = setInterval(function(){
-      console.log(STATE)
-      SUM = STATE[0] + STATE[1] + STATE[2] + STATE[3]
-      DISTANCE = Math.abs((GOAL - SUM)/GOAL)
-      var penguin = {distance: DISTANCE, state: STATE};
-      socket.emit('reading', penguin);
-    
-      qlearner.stdin.write('STAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAATE ' + STATE[0] + ' ' + STATE[1] + ' ' + STATE[2] + ' ' + STATE[3] + ' ' + DISTANCE + '\n');
 
-    }, 250)
+      console.log(state);
+
+      sum = state[0] + state[1] + state[2] + state[3];
+
+      relDistance = Math.abs((goal - sum)/goal);
+
+      // A penguin object we pass to the browser
+      var penguin = { distance: relDistance, 
+		      state: state, 
+		      rawState : rawState, 
+		      minReading : minReading, 
+		      maxReading : maxReading};
+
+      // Pass penguin through the socket
+      socket.emit('reading', penguin);
+
+      // There needs to be enough characters to be written to stdin of the child process, 
+      // otherwise no flushing occurs
+      // NOTE: this is a hack and should be fixed
+      qlearner.stdin.write('STAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAATE ' + state[0] + ' ' + state[1] + ' ' + state[2] + ' ' + state[3] + ' ' + relDistance + '\n');
+
+    }, 250) // We have 250ms refresh rate
   })
 
-  photoresistorGreen.scale(range).on("data", function() {
-    STATE[0] = Math.floor(this.scaled);
+  // Update state and raw state
+  sensorGreen.on("data", function() {
+    rawState[0] = this.value;
+    state[0]    = scaledSensorReading(this.value);
   });
 
-  photoresistorYellow.scale(range).on("data", function() {
-    STATE[1] = Math.floor(this.scaled);
+  sensorYellow.on("data", function() {
+    rawState[1] = this.value;
+    state[1]    = scaledSensorReading(this.value);
   });
 
-  photoresistorRed.scale(range).on("data", function() {
-    STATE[2] = Math.floor(this.scaled);
+  sensorRed.on("data", function() {
+    rawState[2] = this.value;
+    state[2]    = scaledSensorReading(this.value);
   });
 
-  photoresistorBlue.scale(range).on("data", function() {
-    STATE[3] = Math.floor(this.scaled);
+  sensorBlue.on("data", function() {
+    rawState[3] = this.value;
+    state[3]    = scaledSensorReading(this.value);
   });
 
 });

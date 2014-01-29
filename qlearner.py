@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import os
 import sys
 import qlib
 import io
@@ -40,7 +41,7 @@ parser.add_argument("--replayMemorySize",
 args = parser.parse_args()
 
 inStream  = sys.stdin
-outStream = sys.stdout
+outStream = os.fdopen(sys.stdout.fileno(), 'w', 0)
 
 value = qlib.ValueFunction(epsilon = args.epsilon,
                            learnRate = args.learnRate,
@@ -72,7 +73,7 @@ for line in inStream:
         # And send a reset action back to the controller
         log.write('RESET_ACTION\n')
         outStream.write('RESET_ACTION\n')
-        outStream.flush()
+        #outStream.flush()
 
         # Finish things up by erasing the replay memory, so that the new episode can start
         replayMemory = []
@@ -92,14 +93,14 @@ for line in inStream:
             msg = ' '.join(map(str,['DELTA_ACTION',action[0],action[1]])) + '\n'
             log.write(msg)
             outStream.write(msg)
-            outStream.flush()
+            #outStream.flush()
 
         else:
 
             # Otherwise send a reset action to the controller
             log.write('RESET_ACTION\n')
             outStream.write('RESET_ACTION\n')
-            outStream.flush()
+            #outStream.flush()
 
             # And erase replay memory, because we'll start a new episode
             replayMemory = []
