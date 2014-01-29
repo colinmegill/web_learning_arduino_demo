@@ -71,3 +71,9 @@ node has to know about
 // 		sys.stdout.write(line.rstrip() + ' BOOM\n')
 // 		sys.stdout.flush()
 
+
+
+
+
+
+// do we learn, how do we learn...

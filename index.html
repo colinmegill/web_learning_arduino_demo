@@ -18,21 +18,11 @@
 </ul>
 <h3 id="distance"></h3>
 
-<script src="bower_components/jquery/jquery.js"></script>
-<script src="/socket.io/socket.io.js"></script>
-<script>
-  var socket = io.connect('http://localhost');
+<div id="viz"></div>
 
-  $(document).ready(function(){
-    socket.on('reading', function(penguin){
-      $('#distance').text("Distance: " + penguin.distance);
-      $('#green').text("Green: " + penguin.state[0])
-      $('#yellow').text("Yellow: " + penguin.state[1])
-      $('#red').text("Red: " + penguin.state[2])
-      $('#blue').text("Blue: " + penguin.state[3])
-    });
-  })
- 
-</script>
+<script src="bower_components/jquery/jquery.js"></script>
+<script type="text/javascript" src="bower_components/d3/d3.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script type="text/javascript" src="visualization.js"></script>
 </body>
 </html>
