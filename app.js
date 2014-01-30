@@ -16,9 +16,9 @@ var qlearner = spawn('python', [
     '--actions'         ,'0,UP','0,DN','1,UP','1,DN','2,UP','2,DN','3,UP','3,DN',
     '--nStateDims'      ,'4',
     '--relDistanceTh'   ,'0.05',
-    '--epsilon'         ,'0.1',
+    '--epsilon'         ,'0.2',
     '--learnRate'       ,'0.5',
-    '--discountRate'    ,'0.1',
+    '--discountRate'    ,'0.5',
     '--replayMemorySize','100',
     '--saveModel'       ,'model.json']) 
 
