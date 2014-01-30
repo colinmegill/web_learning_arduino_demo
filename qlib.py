@@ -8,6 +8,7 @@ def encode(state,action):
 class ValueFunction(object):
     
     def __init__(self,
+                 nStateDims = None,
                  epsilon = None,
                  learnRate = None,
                  discountRate = None):
@@ -46,6 +47,9 @@ class ValueFunction(object):
 
         n = len(replayMemory)
 
+        if n == 0:
+            raise Exception("Cannot update the value function with empty replay memory!")
+        
         state,action = replayMemory[-1]
         h_next = encode(state,action)
         

@@ -9,10 +9,10 @@ var servo;
 var util = require('util');
 var spawn = require('child_process').spawn;
 
-// The learner can take input arguments, 
-// which we should pass so as to make
-// the app easier to configure
-var qlearner = spawn('python', ['qlearner.py',
+// Spawn the learner with the following input arguments
+var qlearner = spawn('python', [
+    'qlearner.py',
+    '--nStateDims'      ,'4',
     '--relDistanceTh'   ,'0.05',
     '--learnRate'       ,'0.5',
     '--discountRate'    ,'0.1',
@@ -72,7 +72,10 @@ qlearner.stderr.on('data', function (data) {
 /* this data will be piped to a more appropriate place */
 qlearner.stdout.on('data', function (buffer) {
 
-  var str    = buffer.toString('utf8');
+  // Convert string to utf-8 and remove newline character
+  var str = buffer.toString('utf8').replace(/\n/g,'');
+
+  // Action is the first element in the field
   var action = str.split(' ')[0];
 
   if ( action === 'DELTA_ACTION' ) {
@@ -109,9 +112,10 @@ qlearner.stdout.on('data', function (buffer) {
 // Create Getopt instance, bind option 'help' to
 // default action, and parse command line
 opt = require('node-getopt').create([
-  ['' , 'device=DEVICE'  , 'Which device to use'],
-  ['',  'port=PORT'      , 'Which port to use'],
-  ['h' , 'help'             , 'display this help'],
+  ['f', 'updateFreq=FREQ', 'Update frequency (Hz) of the system'],
+  ['d', 'device=DEVICE'  , 'Which device to use'],
+  ['p', 'port=PORT'      , 'Which port to use'],
+  ['h', 'help'           , 'display this help'],
 ])
 .bindHelp()
 .parseSystem();
@@ -165,7 +169,8 @@ board.on("ready", function() {
   // NOTE: how do we get proper minimum and maximum readings so that 
   // all sensor readings can be normalized to a preset range?
   //minReading = sensorGreen.value;
-    
+  //maxReading = ...
+
   io.sockets.on('connection', function (socket){
     var check = setInterval(function(){
 
@@ -190,8 +195,8 @@ board.on("ready", function() {
       // NOTE: this is a hack and should be fixed
       qlearner.stdin.write('STAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAATE ' + state[0] + ' ' + state[1] + ' ' + state[2] + ' ' + state[3] + ' ' + relDistance + '\n');
 
-    }, 250) // We have 250ms refresh rate
-  })
+    }, 1000.0 / args['updateFreq'] )
+  });
 
   // Update state and raw state
   sensorGreen.on("data", function() {
