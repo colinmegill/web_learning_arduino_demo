@@ -13,11 +13,14 @@ var spawn = require('child_process').spawn;
 // NOTE: -u is supposed to treat streams unbuffered
 var qlearner = spawn('python', [
     'qlearner.py',
+    '--actions'         ,'0,UP','0,DN','1,UP','1,DN','2,UP','2,DN','3,UP','3,DN',
     '--nStateDims'      ,'4',
     '--relDistanceTh'   ,'0.05',
+    '--epsilon'         ,'0.1',
     '--learnRate'       ,'0.5',
     '--discountRate'    ,'0.1',
-    '--replayMemorySize','100']) 
+    '--replayMemorySize','100',
+    '--saveModel'       ,'model.json']) 
 
 // Store state of the system.
 // Here, state is the vector of light intensities
@@ -49,7 +52,10 @@ var maxBucket = 9;
 
 var scaledSensorReading = function(x) {
 
-  var val = Math.floor( (maxBucket - minBucket) * ( x - minReading ) / ( maxReading - minReading ) + minBucket );
+  var val = Math.floor( (maxBucket - minBucket) * 
+			( x - minReading ) / 
+			( maxReading - minReading ) + 
+			minBucket );
 
   val = val < minBucket ? minBucket : val;
   val = val > maxBucket ? maxBucket : val;
@@ -77,16 +83,25 @@ qlearner.stdout.on('data', function (buffer) {
   var str = buffer.toString('utf8').replace(/\n/g,'');
 
   // Action is the first element in the field
-  var action = str.split(' ')[0];
+  var actionID = str.split(' ')[0];
 
-  if ( action === 'DELTA_ACTION' ) {
+  if ( actionID === 'DELTA_ACTION' ) {
+
+    var action = str.split(' ')[1];
 
     // Which LED are we going to touch?
-    var pinID  = parseInt(str.split(' ')[1]);
+    var pinID  = parseInt(action.split(',')[0]);
 
     // Are we increasing or decreasing the brightness?
-    var sign   = parseInt(str.split(' ')[2]);
+    var signStr = action.split(',')[1];
 
+    var sign;
+    if ( signStr === 'UP' ) {
+      sign = 1;
+    } else if ( signStr === 'DN' ) {
+      sign = -1;
+    }
+    
     // What is the new brightness value?
     var newBrightness = leds[pinID].value + sign * deltas[pinID];
 
@@ -95,7 +110,7 @@ qlearner.stdout.on('data', function (buffer) {
     // Assign the LED new brightness value 
     leds[pinID].brightness( newBrightness );
 
-  } else if ( action === 'RESET_ACTION' ) {
+  } else if ( actionID === 'RESET_ACTION' ) {
 
     // If reset action is sent, we'll turn all
     // LEDs off.
@@ -199,7 +214,7 @@ board.on("ready", function() {
       // There needs to be enough characters to be written to stdin of the child process, 
       // otherwise no flushing occurs
       // NOTE: this is a hack and should be fixed
-      qlearner.stdin.write('STAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAATE ' + state[0] + ' ' + state[1] + ' ' + state[2] + ' ' + state[3] + ' ' + relDistance + '\n');
+      qlearner.stdin.write('STATE ' + state[0] + ' ' + state[1] + ' ' + state[2] + ' ' + state[3] + ' ' + relDistance + '\n');
 
     }, 1000.0 / args['updateFreq'] )
   });

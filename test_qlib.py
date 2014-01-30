@@ -69,17 +69,26 @@ def test_updateValuefunction():
                      (state3,action3),
                      (state4,action4) ]
     
-    reward = 100
+    reward = 1.0
     
     value.updateValueByDelayedReward(replayMemory,reward)
 
     gamma = learnRate * discountRate
     
-    assert isClose( value.getValue(state4,action4) , gamma**0 * learnRate * reward )
-    assert isClose( value.getValue(state3,action3) , gamma**1 * learnRate * reward )
-    assert isClose( value.getValue(state2,action2) , gamma**2 * learnRate * reward )
-    assert isClose( value.getValue(state1,action1) , gamma**3 * learnRate * reward )
-    assert isClose( value.getValue(state0,action0) , gamma**4 * learnRate * reward )
+    assert isClose( value.getValue(state4,action4),
+                    gamma**0 * learnRate * reward )
+
+    assert isClose( value.getValue(state3,action3),
+                    gamma**1 * learnRate * reward )
+
+    assert isClose( value.getValue(state2,action2),
+                    gamma**2 * learnRate * reward )
+
+    assert isClose( value.getValue(state1,action1),
+                    gamma**3 * learnRate * reward )
+
+    assert isClose( value.getValue(state0,action0),
+                    gamma**4 * learnRate * reward )
 
 
 

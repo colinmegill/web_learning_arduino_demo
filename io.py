@@ -8,8 +8,8 @@ def parseLine(line):
         raise Exception('Incorrectly formatted input line: ' + line +'.\n' +
                         'Are you sure it has enough fields?')
 
-    #if ID != 'STATE':
-    #    raise Exception('ID is not STATE: ' + ID + ' found instead')
+    if ID != 'STATE':
+        raise Exception('ID is not STATE: ' + ID + ' found instead')
         
     currState = [led0,led1,led2,led3]    
 

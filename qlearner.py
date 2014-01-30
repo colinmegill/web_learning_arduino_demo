@@ -1,6 +1,5 @@
 #!/usr/bin/env python -u 
 
-import os
 import sys
 import qlib
 import io
@@ -9,10 +8,17 @@ import argparse
 parser = argparse.ArgumentParser()
 
 parser.add_argument("--nStateDims",
-                    metavar = '[1,2,3,...]',
+                    metavar = '<int>',
                     type = int,
                     default = 4,
                     help = 'How many elements in the state vector.')
+
+parser.add_argument("--actions",
+                    metavar = "a1 a2 ... ak",
+                    nargs = '+',
+                    type = str,
+                    default = [],
+                    help = 'A list of actions.')
 
 parser.add_argument("--relDistanceTh",
                     metavar = '[0..1]',
@@ -44,6 +50,19 @@ parser.add_argument("--replayMemorySize",
                     default = 100,
                     help = 'How long training sequences can we hold at most.')
 
+parser.add_argument("--loadModel",
+                    metavar = '<file>',
+                    type = str,
+                    default = None,
+                    help = 'Load model from file.')
+
+parser.add_argument("--saveModel",
+                    metavar = '<file>',
+                    type = str,
+                    default = None,
+                    help = 'Save model to file.')
+
+
 # Parse arguments
 args = parser.parse_args()
 
@@ -52,19 +71,25 @@ inStream  = sys.stdin
 
 # Stream for writing to.
 # NOTE: stream flushes everything it gets
-outStream = sys.stdout #os.fdopen(sys.stdout.fileno(), 'w', 0)
+outStream = sys.stdout 
 
-# Define a value function
-value = qlib.ValueFunction( nStateDims = args.nStateDims,
-                            epsilon = args.epsilon,
-                            learnRate = args.learnRate,
-                            discountRate = args.discountRate )
+# If model needs to be loaded from file
+if args.loadModel:
+    value = qlib.ValueFunction.load(args.loadModel)
 
-# These actions will come from the controller application
-actions = [(idx,1) for idx in range(args.nStateDims)] + [(idx,-1) for idx in range(args.nStateDims)]
+else:
+    # Define a value function
+    value = qlib.ValueFunction( nStateDims   = args.nStateDims,
+                                epsilon      = args.epsilon,
+                                learnRate    = args.learnRate,
+                                discountRate = args.discountRate )
 
-# Open log for writing
-log = open('log','w')
+
+if len(args.actions) == 0:
+    raise Exception("No actions provided!")
+    
+# Open log for writing, unbuffered
+log = open('log','w', 0)
 
 # What is the sequence of state-action pairs in the episode
 replayMemory = []
@@ -75,6 +100,7 @@ trainIdx = 0
 
 while True:
 
+    # We need to read lines like this, otherwise the lines get buffered
     try:
         line = inStream.readline()
     except:
@@ -83,14 +109,11 @@ while True:
     # Read one line of input
     ID,currState,relDistance = io.parseLine(line)
 
-    # Keep track of the progress of the algorithm
-    log.write( str(episodeIdx) + ' ' + str(trainIdx) + ' ' + str(currState) + ' ' + str(relDistance) + '\n')
-    
     # If the state is close enough to the target...
     if relDistance < args.relDistanceTh:
 
-        # Reward that gets
-        reward = 1.0 - len(replayMemory) / args.replayMemorySize
+        # Reward that we get
+        reward = 1.0 - 1.0 * len(replayMemory) / args.replayMemorySize
         
         # We can update the value function based on the replay memory
         # if it exists
@@ -99,11 +122,11 @@ while True:
             trainIdx += 1
             
         # And send a reset action back to the controller
-        log.write('RESET_ACTION\n')
         outStream.write('RESET_ACTION\n')
         outStream.flush()
 
-        # Finish things up by erasing the replay memory, so that the new episode can start
+        # Finish things up by erasing the replay memory,
+        # so that the new episode can start
         replayMemory = []
 
         # Increment episode index
@@ -112,7 +135,7 @@ while True:
     else:
 
         # If we are not yet close enough to the goal, sample new action
-        action = value.getEpsilonGreedyAction(currState,actions)
+        action = value.getEpsilonGreedyAction(currState,args.actions)
 
         # Update replay memory
         replayMemory.append( (currState,action) )
@@ -121,8 +144,7 @@ while True:
         if len(replayMemory) < args.replayMemorySize:
 
             # Send the delta action to the controller
-            msg = ' '.join(map(str,['DELTA_ACTION',action[0],action[1]]))
-            log.write(msg + '\n')
+            msg = ' '.join(map(str,['DELTA_ACTION',action]))
             outStream.write(msg + '\n')
             outStream.flush()
             
@@ -131,7 +153,7 @@ while True:
     if len(replayMemory) == args.replayMemorySize:
 
         # Send a reset action to the controller
-        log.write('RESET_ACTION\n')
+        log.write(str(len(replayMemory)) + ' 0\n')
         outStream.write('RESET_ACTION\n')
         outStream.flush()
         
@@ -140,6 +162,18 @@ while True:
 
         # Increment episode index
         episodeIdx += 1
+
+
+# If we need to save the model to file
+if args.saveModel:
+    value.save(args.saveModel)
+
+
+
+
+
+
+
 
 
 
