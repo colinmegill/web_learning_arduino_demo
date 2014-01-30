@@ -10,6 +10,7 @@ var util = require('util');
 var spawn = require('child_process').spawn;
 
 // Spawn the learner with the following input arguments
+// NOTE: -u is supposed to treat streams unbuffered
 var qlearner = spawn('python', [
     'qlearner.py',
     '--nStateDims'      ,'4',
@@ -35,7 +36,7 @@ var goal = 20;
 var relDistance;
 
 // Jow much brightness is added/removed per action
-var deltas = [3,3,3,3]
+var deltas = [30,30,30,30]
 
 // We will store the minimum and maximum readings of the photo sensors
 // so that our scaling eliminates the ambient lighting.
@@ -89,6 +90,8 @@ qlearner.stdout.on('data', function (buffer) {
     // What is the new brightness value?
     var newBrightness = leds[pinID].value + sign * deltas[pinID];
 
+    newBrightness = Math.max( 0, Math.min( newBrightness , 255 ) );
+
     // Assign the LED new brightness value 
     leds[pinID].brightness( newBrightness );
 
@@ -101,9 +104,11 @@ qlearner.stdout.on('data', function (buffer) {
     leds[2].brightness(0);
     leds[3].brightness(0);
 
+  } else {
+    console.log("Erroneous line: " + str + '\n');
   }
 
-  console.log(buffer.toString('utf8'));
+  console.log(str + '\n');
 
 }); 
 
@@ -178,12 +183,13 @@ board.on("ready", function() {
 
       sum = state[0] + state[1] + state[2] + state[3];
 
-      relDistance = Math.abs((goal - sum)/goal);
+      relDistance = Math.abs( (goal - sum) / goal );
 
       // A penguin object we pass to the browser
-      var penguin = { distance: relDistance, 
-		      state: state, 
-		      rawState : rawState, 
+      var penguin = { distance   : relDistance, 
+		      state      : state, 
+		      rawState   : rawState, 
+		      ledVals    : [ leds[0].value, leds[1].value, leds[2].value, leds[3].value ],
 		      minReading : minReading, 
 		      maxReading : maxReading};
 

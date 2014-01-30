@@ -64,8 +64,8 @@ class ValueFunction(object):
             h = encode(state,action)
 
             # If the state in replay memory hasn't changed,
-            # we won't update twice
-            if h == h_next:
+            # we won't update using it twice
+            if state == state_next:
                 continue
 
             delta = self.Q.get(h_next,0) - self.Q.get(h,0)
@@ -76,7 +76,7 @@ class ValueFunction(object):
             # Clamp the new Q-value between [0,1]
             self.Q[h] = np.max([ 0.0, np.min([ Qnew , 1.0 ]) ])
 
-            h_next = copy.deepcopy(h)
+            state_next = copy.deepcopy(state)
             
             if log:
                 log.write('\t'.join(map(str,[i,self.Q.get(h,0)])) + '\n')

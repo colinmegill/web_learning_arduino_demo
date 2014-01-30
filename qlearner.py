@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python -u 
 
 import os
 import sys
@@ -44,8 +44,6 @@ parser.add_argument("--replayMemorySize",
                     default = 100,
                     help = 'How long training sequences can we hold at most.')
 
-fooStr = 'Foo'
-
 # Parse arguments
 args = parser.parse_args()
 
@@ -54,7 +52,7 @@ inStream  = sys.stdin
 
 # Stream for writing to.
 # NOTE: stream flushes everything it gets
-outStream = os.fdopen(sys.stdout.fileno(), 'w', 0)
+outStream = sys.stdout #os.fdopen(sys.stdout.fileno(), 'w', 0)
 
 # Define a value function
 value = qlib.ValueFunction( nStateDims = args.nStateDims,
@@ -75,7 +73,12 @@ replayMemory = []
 episodeIdx = 0
 trainIdx = 0
 
-for line in inStream:
+while True:
+
+    try:
+        line = inStream.readline()
+    except:
+        break
 
     # Read one line of input
     ID,currState,relDistance = io.parseLine(line)
@@ -97,7 +100,7 @@ for line in inStream:
             
         # And send a reset action back to the controller
         log.write('RESET_ACTION\n')
-        outStream.write('RESET_ACTION ' + fooStr + '\n')
+        outStream.write('RESET_ACTION\n')
         outStream.flush()
 
         # Finish things up by erasing the replay memory, so that the new episode can start
@@ -120,7 +123,7 @@ for line in inStream:
             # Send the delta action to the controller
             msg = ' '.join(map(str,['DELTA_ACTION',action[0],action[1]]))
             log.write(msg + '\n')
-            outStream.write(msg + ' ' + fooStr + '\n')
+            outStream.write(msg + '\n')
             outStream.flush()
             
     # If we have used too many state transitions,
@@ -129,7 +132,7 @@ for line in inStream:
 
         # Send a reset action to the controller
         log.write('RESET_ACTION\n')
-        outStream.write('RESET_ACTION ' + fooStr + '\n')
+        outStream.write('RESET_ACTION\n')
         outStream.flush()
         
         # And erase replay memory, because we'll start a new episode
