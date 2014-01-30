@@ -50,27 +50,46 @@ class ValueFunction(object):
         if n == 0:
             raise Exception("Cannot update the value function with empty replay memory!")
         
-        state,action = replayMemory[-1]
-        h_next = encode(state,action)
+        state_next,action_next = replayMemory[-1]
+        h_next = encode(state_next,action_next)
         
         self.Q[h_next] = self.Q.get(h_next,0) + self.learnRate * reward
 
         if n == 1:
             return
-        
+            
         for i in xrange(n-2,-1,-1):
 
             state,action = replayMemory[i]
             h = encode(state,action)
 
+            # If the state in replay memory hasn't changed,
+            # we won't update twice
+            if h == h_next:
+                continue
+
             delta = self.Q.get(h_next,0) - self.Q.get(h,0)
-            
-            self.Q[h] = self.Q.get(h,0) + self.learnRate * ( 0 + self.discountRate * delta )
+
+            # How much is the new Q-value
+            Qnew = self.Q.get(h,0) + self.learnRate * ( 0 + self.discountRate * delta )
+
+            # Clamp the new Q-value between [0,1]
+            self.Q[h] = np.max([ 0.0, np.min([ Qnew , 1.0 ]) ])
 
             h_next = copy.deepcopy(h)
             
             if log:
                 log.write('\t'.join(map(str,[i,self.Q.get(h,0)])) + '\n')
+
+
+
+
+
+
+
+
+
+
 
 
 
