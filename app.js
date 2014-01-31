@@ -77,63 +77,6 @@ qlearner.stderr.on('data', function (data) {
   console.log('python stderr: ' + data);
 })
 
-/* this data will be piped to a more appropriate place */
-qlearner.stdout.on('data', function (buffer) {
-
-  // Convert string to utf-8 and remove newline character
-  var str = buffer.toString('utf8').replace(/\n/g,'');
-
-  // Action is the first element in the field
-  var actionID = str.split(' ')[0];
-
-  if ( actionID === 'DELTA_ACTION' ) {
-
-    var action = str.split(' ')[1];
-
-    // Which LED are we going to touch?
-    var pinID  = parseInt(action.split(',')[0]);
-
-    // Are we increasing or decreasing the brightness?
-    var signStr = action.split(',')[1];
-
-    var sign;
-    if ( signStr === 'UP' ) {
-      sign = 1;
-    } else if ( signStr === 'DN' ) {
-      sign = -1;
-    }
-    
-    // What is the new brightness value?
-    var newBrightness = leds[pinID].value + sign * deltas[pinID];
-
-    newBrightness = Math.max( 0, Math.min( newBrightness , 255 ) );
-
-    // Assign the LED new brightness value 
-    leds[pinID].brightness( newBrightness );
-
-  } else if ( actionID === 'RESET_ACTION' ) {
-
-    // If reset action is sent, we'll turn all
-    // LEDs off.
-    leds[0].brightness(0);
-    leds[1].brightness(0);
-    leds[2].brightness(0);
-    leds[3].brightness(0);
-
-  } else if ( actionID === "INFO" ) {
-
-    var info = $.parseJSON( str.split(' ')[1] );
-
-  } else {
-    console.log("Erroneous line: " + str + '\n');
-  }
-
-  console.log(str + '\n');
-
-}); 
-
-
-
 // Create Getopt instance, bind option 'help' to
 // default action, and parse command line
 opt = require('node-getopt').create([
@@ -197,6 +140,62 @@ board.on("ready", function() {
   //maxReading = ...
 
   io.sockets.on('connection', function (socket){
+
+    /* this data will be piped to a more appropriate place */
+    qlearner.stdout.on('data', function (buffer) {
+    
+      // Convert string to utf-8 and remove newline character
+      var str = buffer.toString('utf8').replace(/\n/g,'');
+    
+      // Action is the first element in the field
+      var actionID = str.split(' ')[0];
+    
+      if ( actionID === 'DELTA_ACTION' ) {
+    
+        var action = str.split(' ')[1];
+    
+        // Which LED are we going to touch?
+        var pinID  = parseInt(action.split(',')[0]);
+    
+        // Are we increasing or decreasing the brightness?
+        var signStr = action.split(',')[1];
+    
+        var sign;
+        if ( signStr === 'UP' ) {
+          sign = 1;
+        } else if ( signStr === 'DN' ) {
+          sign = -1;
+        }
+        
+        // What is the new brightness value?
+        var newBrightness = leds[pinID].value + sign * deltas[pinID];
+    
+        newBrightness = Math.max( 0, Math.min( newBrightness , 255 ) );
+    
+        // Assign the LED new brightness value 
+        leds[pinID].brightness( newBrightness );
+    
+      } else if ( actionID === 'RESET_ACTION' ) {
+    
+        // If reset action is sent, we'll turn all
+        // LEDs off.
+        leds[0].brightness(0);
+        leds[1].brightness(0);
+        leds[2].brightness(0);
+        leds[3].brightness(0);
+    
+      } else if ( actionID === "INFO" ) {
+        var info = $.parseJSON( str.split(' ')[1] );
+        socket.emit('info', info)
+      } else {
+        console.log("Erroneous line: " + str + '\n');
+      }
+    
+      console.log(str + '\n');
+    
+    }); 
+
+
     var check = setInterval(function(){
 
       console.log(state);

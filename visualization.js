@@ -34,6 +34,10 @@ $(document).ready(function(){
 
     // textToUpdate.attr("cx", function(d, i) { return () })
   });
+
+  socket.on('info', function(info){
+    console.log(info);
+  })
 })
 
 // var rect = svg.selectAll("rect")			
