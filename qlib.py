@@ -65,7 +65,10 @@ class ValueFunction(object):
                             "with empty replay memory!")
 
         if log:
-            log.write(str(n) + ' ' + str(reward) + '\n')
+            log.write('INFO ' +
+                      json.dumps({ 'nStatesInEpisode' : n,
+                                   'reward'           : reward,
+                                   'nStatesExplored'  : len(self.Q) }) + '\n')
             
         state_next,action_next = replayMemory[-1]
 

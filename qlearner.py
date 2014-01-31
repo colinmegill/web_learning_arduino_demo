@@ -153,7 +153,6 @@ while True:
     if len(replayMemory) == args.replayMemorySize:
 
         # Send a reset action to the controller
-        log.write(str(len(replayMemory)) + ' 0\n')
         outStream.write('RESET_ACTION\n')
         outStream.flush()
         
