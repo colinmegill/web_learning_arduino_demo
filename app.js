@@ -4,6 +4,7 @@ var app = express();
 var server = require('http').createServer(app);
 var io = io.listen(server);
 var five = require("johnny-five");
+var $ = require("jquery");
 var board;
 var servo;
 var util = require('util');
@@ -118,6 +119,10 @@ qlearner.stdout.on('data', function (buffer) {
     leds[1].brightness(0);
     leds[2].brightness(0);
     leds[3].brightness(0);
+
+  } else if ( actionID === "INFO" ) {
+
+    var info = $.parseJSON( str.split(' ')[1] );
 
   } else {
     console.log("Erroneous line: " + str + '\n');
