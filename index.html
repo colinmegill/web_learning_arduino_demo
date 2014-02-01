@@ -3,6 +3,16 @@
 <head>
 <style type="text/css">
 
+path {
+    stroke: #e2e2e2;
+    stroke-width: 0.9;
+	fill: none;
+}
+
+svg {
+    border: 1px solid black;
+}
+
 
 </style>
 </head>
@@ -20,6 +30,11 @@
 
 <div id="viz"></div>
 
+<div id="distance_plot"></div>
+
+<div id="histogram"></div>
+
+<script type="text/javascript" src="bower_components/underscore/underscore.js"></script>
 <script src="bower_components/jquery/jquery.js"></script>
 <script type="text/javascript" src="bower_components/d3/d3.js"></script>
 <script type="text/javascript" src="/socket.io/socket.io.js"></script>

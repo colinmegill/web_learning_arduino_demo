@@ -1,15 +1,83 @@
 var socket = io.connect('http://localhost');
-var w = 500;
-var h = 50;
+var histogramStartData = []
+
+for (i=0; i<100; i++) {
+  histogramStartData.push(Math.floor(Math.random()*100))
+}
+
+var w = 600;
+var h = 300;
+var distance_plot_w = w;
+var distance_plot_h = h * 2;
+
+
+var barpadding = 1;
+
+/* led circles setup */
+
 var svg = d3.select("#viz")
 						.append("svg")
 						.attr("width", w)
 						.attr("height", h);
 
-    var circles = svg.selectAll("circle")
-    						.data([1, 1, 1, 1])
-    						.enter()
-    						.append("circle");
+var circles = svg.selectAll("circle")
+						      .data([1, 1, 1, 1])
+						      .enter()
+						      .append("circle");
+
+/* histogram setup */ 
+
+var svg2 = d3.select("#histogram")
+              .append("svg")
+              .attr("width", w)
+              .attr("height", h)
+
+var histogram = svg2.selectAll("rect")
+                    .data(histogramStartData)
+                    .enter()
+                    .append("rect")
+                    .attr("x", function(d, i){
+                      return i * (w / histogramStartData.length);
+                    })
+                    .attr("y", function(d, i){
+                      return 0;
+                    })
+                    .attr("width", function(d, i){
+                      return w / histogramStartData.length - barpadding;
+                    })
+                    .attr("height", function(d){
+                      return d;
+                    })
+
+
+/* distance plot setup */ 
+
+var distanceStartData = [];
+
+for (i=0; i < 100; i++) {
+  distanceStartData.push({x: Math.floor(Math.random() * 100), y: Math.random()})
+}
+
+var margin = 30;
+var x = d3.scale.linear().domain([0, 100]).range([0 + margin -5, w]);
+var y = d3.scale.linear().domain([0, 1.0]).range([0 + margin, h - margin]);
+
+var svg3 = d3.select("#distance_plot")
+              .append("svg:svg")
+              .attr("width", distance_plot_w)
+              .attr("height", distance_plot_h)
+              .append("svg:g")
+
+var line = d3.svg.line()
+              .x(function(d,i) { return x(d.x); })
+              .y(function(d,i) { return y(d.y); })
+
+svg3.append("svg:path")
+    .data([distanceStartData])
+    .attr("d", line)
+
+
+
 
 $(document).ready(function(){
   socket.on('reading', function(penguin){
