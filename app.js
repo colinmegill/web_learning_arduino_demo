@@ -25,8 +25,8 @@ var learnTracker = {
     nEpisodesPlayed : 0,
     cumulativeReward : 0,
     nStatesExplored : 0,
-    currentEpisode : {
-	nActionsTaken : 0
+    pastEpisodes : {
+	distanceMat : [ [], [], [], [], [], [], [], [], [], [] ]
     }
 };
 
@@ -55,7 +55,7 @@ var deltas = [30,30,30,30];
 // We will store the minimum and maximum readings of the photo sensors
 // so that our scaling eliminates the ambient lighting.
 var minReading = 20;
-var maxReading = 50;
+var maxReading = 120;
 
 // How many buckets per scaled reading? 
 var minBucket = 0;
@@ -193,20 +193,25 @@ board = new five.Board({
 // When the board is ready, fire up this callback function
 board.on("ready", function() {
 
+  // Indicate where the sensors sit on the board
   sensorGreen  = new five.Sensor({pin: "A0"});
   sensorYellow = new five.Sensor({pin: "A1"});
   sensorRed    = new five.Sensor({pin: "A2"});
   sensorBlue   = new five.Sensor({pin: "A3"});
 
+  // Collect the sensors into an array
   sensors = [sensorGreen, sensorYellow, sensorRed, sensorBlue ]
 
+  // Indicate where the LEDs sit on the board
   ledGreen  = new five.Led({ pin: 11 })
   ledYellow = new five.Led({ pin: 10 })
   ledRed    = new five.Led({ pin: 6  })
   ledBlue   = new five.Led({ pin: 5  })
 
+  // Collect the LEDs into an array
   leds = [ledGreen,ledYellow,ledRed,ledBlue];
 
+  // Indicate which variables are seen in the REPL
   board.repl.inject({
     green:   ledGreen,
     yellow:  ledYellow,
@@ -216,10 +221,8 @@ board.on("ready", function() {
     sensors: sensors
   });
 
-  ledGreen.brightness(0);
-  ledYellow.brightness(0);
-  ledRed.brightness(0);
-  ledBlue.brightness(0);
+  // We reset the LEDs in case they are lit
+  resetLEDs();
 
   // We will get the minimum intensity reading now that all LEDs are off.
   // This minimum intensity corresponds to the surrounding lighting.
@@ -232,23 +235,57 @@ board.on("ready", function() {
 
     var check = setInterval(function(){
 
+      // Log the state we're in
       console.log(state);
 
+      // Get the sum of the intensities
       sum = state[0] + state[1] + state[2] + state[3];
 
+      // How close are we to the goal
       relDistance = Math.abs( (goal - sum) / goal );
+ 
+      // Episode index for keeping track of the past 10 episodes
+      episodeIdx = learnTracker.nEpisodesPlayed % 10;
 
+      // Add data to the learn tracker about the currently running episode
+      learnTracker.pastEpisodes.distanceMat[episodeIdx].push(relDistance);
+
+      // If the distance is small enough, we can conlude the episode
       if ( relDistance < relDistanceTh ) {
-	var reward = getReward(learnTracker.currentEpisode.nActionsTaken);
+
+        // How many actions were taken? 
+        var nActionsTaken = learnTracker
+	      .pastEpisodes
+	      .distanceMat[episodeIdx]
+	      .length
+
+        // We conclude by first computing the reward of the episode
+	var reward = getReward(nActionsTaken);
+
+        // Send the reward to the qlearner
         qlearner.stdin.write('REWARD ' + reward + '\nNEW_EPISODE\n');
+
+        // Reset the LEDs 
         resetLEDs();
+
+        // Increment episode counter
         learnTracker.nEpisodesPlayed += 1;
+
+        // Get the new episode index 
+        episodeIdx = learnTracker.nEpisodesPlayed % 10;
+
+        // Increment cumulative rewards
         learnTracker.cumulativeReward += reward;
-	learnTracker.currentEpisode.nActionsTaken = 0;
+
+        // Send the learn tracker data to the browser
         socket.emit('info', learnTracker);
+
+        // Erase the learn tracker data for the next episode index
+        learnTracker.pastEpisodes.distanceMat[episodeIdx] = [];
+
       } else {
-        learnTracker.currentEpisode.nActionsTaken += 1;
-        // A penguin object we pass to the browser
+
+        // Otherwise we just send data to the browser
         var penguin = { distance   : relDistance, 
 			state      : state, 
 			rawState   : rawState, 
@@ -264,8 +301,11 @@ board.on("ready", function() {
         // otherwise no flushing occurs
         // NOTE: this is a hack and should be fixed
         qlearner.stdin.write('STATE ' + state[0] + ' ' + state[1] + ' ' + state[2] + ' ' + state[3] + '\n');
+
       }
+
     }, 1000.0 / args['updateFreq'] )
+
   });
 
   // Update state and raw state

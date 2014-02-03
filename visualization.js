@@ -25,6 +25,8 @@ var circles = svg.selectAll("circle")
     .enter()
     .append("circle");
 
+var reward2episode = [];
+
 $(document).ready(function(){
 
     socket.on('reading', function(penguin){
@@ -51,9 +53,14 @@ $(document).ready(function(){
     });
 
     socket.on('info', function(info){
-	$("#nEpisodesPlayed").text("Num. of episodes played: " + info.nEpisodesPlayed);
-	$("#cumulativeReward").text("Cumulative reward: " + info.cumulativeReward);
-	$("#nStatesExplored").text("Num. of states explored: " + info.nStatesExplored);
+	$("#nEpisodesPlayed")
+	    .text("Num. of episodes played: " + info.nEpisodesPlayed);
+	$("#cumulativeReward")
+	    .text("Cumulative reward: " + info.cumulativeReward);
+	$("#nStatesExplored")
+	    .text("Num. of states explored: " + info.nStatesExplored);
+
+	reward2episode.push( info.nEpisodesPlayed / info.cumulativeReward );
 
     });
 });
