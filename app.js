@@ -4,7 +4,6 @@ var app = express();
 var server = require('http').createServer(app);
 var io = io.listen(server);
 var five = require("johnny-five");
-var $ = require("jquery");
 var board;
 var servo;
 var util = require('util');
@@ -14,14 +13,22 @@ var spawn = require('child_process').spawn;
 // NOTE: -u is supposed to treat streams unbuffered
 var qlearner = spawn('python', [
     'qlearner.py',
-    '--actions'         ,'0,UP','0,DN','1,UP','1,DN','2,UP','2,DN','3,UP','3,DN',
+    '--actions'         ,'0,1','0,-1','1,1','1,-1','2,1','2,-1','3,1','3,-1',
     '--nStateDims'      ,'4',
-    '--relDistanceTh'   ,'0.05',
     '--epsilon'         ,'0.2',
     '--learnRate'       ,'0.5',
     '--discountRate'    ,'0.5',
     '--replayMemorySize','100',
     '--saveModel'       ,'model.json']) 
+
+var learnTracker = {
+    nEpisodesPlayed : 0,
+    cumulativeReward : 0,
+    nStatesExplored : 0,
+    currentEpisode : {
+	nActionsTaken : 0
+    }
+};
 
 // Store state of the system.
 // Here, state is the vector of light intensities
@@ -39,8 +46,11 @@ var goal = 20;
 // And how far are we from the goal
 var relDistance;
 
+// How close we should get in order to get reward?
+var relDistanceTh = 0.05;
+
 // Jow much brightness is added/removed per action
-var deltas = [30,30,30,30]
+var deltas = [30,30,30,30];
 
 // We will store the minimum and maximum readings of the photo sensors
 // so that our scaling eliminates the ambient lighting.
@@ -65,6 +75,38 @@ var scaledSensorReading = function(x) {
 
 };
 
+// Reward the player more the faster it gets to the right solution
+var getReward = function(nActions) {
+  return 1 * Math.exp( - 0.02 * ( nActions - 1 ) );
+};
+
+var processDeltaAction = function(actionStr) {
+
+    // Which LED are we going to touch?
+    var pinID  = parseInt(actionStr.split(',')[0]);
+
+    // Are we increasing or decreasing the brightness?
+    var sign = parseInt(actionStr.split(',')[1]);
+
+    // What is the new brightness value?
+    var newBrightness = leds[pinID].value + sign * deltas[pinID];
+
+    newBrightness = Math.max( 0, Math.min( newBrightness , 255 ) );
+
+    // Assign the LED new brightness value 
+    leds[pinID].brightness( newBrightness );
+};
+
+// Turn all LEDs OFF.
+var resetLEDs = function() {
+
+  leds[0].brightness(0);
+  leds[1].brightness(0);
+  leds[2].brightness(0);
+  leds[3].brightness(0);
+
+};
+
 qlearner.stdin.on('end', function(){
   process.stdout.write('qlearner stream ended.');
 });
@@ -81,57 +123,49 @@ qlearner.stderr.on('data', function (data) {
 qlearner.stdout.on('data', function (buffer) {
 
   // Convert string to utf-8 and remove newline character
-  var str = buffer.toString('utf8').replace(/\n/g,'');
-
-  // Action is the first element in the field
-  var actionID = str.split(' ')[0];
-
-  if ( actionID === 'DELTA_ACTION' ) {
-
-    var action = str.split(' ')[1];
-
-    // Which LED are we going to touch?
-    var pinID  = parseInt(action.split(',')[0]);
-
-    // Are we increasing or decreasing the brightness?
-    var signStr = action.split(',')[1];
-
-    var sign;
-    if ( signStr === 'UP' ) {
-      sign = 1;
-    } else if ( signStr === 'DN' ) {
-      sign = -1;
-    }
+  var lines = buffer.toString('utf8').split('\n');
+  
+  for ( var i = 0; i < lines.length; ++i ) {
     
-    // What is the new brightness value?
-    var newBrightness = leds[pinID].value + sign * deltas[pinID];
+    var line = lines[i];
+      
+    if ( line === undefined || line.length === 0 ) {
+      continue;
+    }
 
-    newBrightness = Math.max( 0, Math.min( newBrightness , 255 ) );
+    // Action is the first element in the field
+    var actionID = line.split(' ')[0];
+    
+    // If it's a delta action
+    if ( actionID === 'DELTA_ACTION' ) {
+      	    
+      // Extract the action string...
+      var actionStr = line.split(' ')[1];
+    
+      // ... and pass to the processor
+      // leds will be modified
+      processDeltaAction(actionStr);
 
-    // Assign the LED new brightness value 
-    leds[pinID].brightness( newBrightness );
+    } else if ( actionID === "INFO" ) {
+	    
+      var info = JSON.parse( line.substr(5) );
 
-  } else if ( actionID === 'RESET_ACTION' ) {
+      learnTracker.nStatesExplored = info.nStatesExplored;
 
-    // If reset action is sent, we'll turn all
-    // LEDs off.
-    leds[0].brightness(0);
-    leds[1].brightness(0);
-    leds[2].brightness(0);
-    leds[3].brightness(0);
+      // Add learn tracker and send to browser
 
-  } else if ( actionID === "INFO" ) {
+    } else {
 
-    var info = $.parseJSON( str.split(' ')[1] );
+      console.log("Erroneous line: " + line + '\n');
+      process.exit(1);
 
-  } else {
-    console.log("Erroneous line: " + str + '\n');
+    }
+
   }
 
-  console.log(str + '\n');
+  console.log(lines + '\n');
 
 }); 
-
 
 
 // Create Getopt instance, bind option 'help' to
@@ -159,7 +193,6 @@ board = new five.Board({
 
 // When the board is ready, fire up this callback function
 board.on("ready", function() {
-
 
   sensorGreen  = new five.Sensor({pin: "A0"});
   sensorYellow = new five.Sensor({pin: "A1"});
@@ -205,22 +238,33 @@ board.on("ready", function() {
 
       relDistance = Math.abs( (goal - sum) / goal );
 
-      // A penguin object we pass to the browser
-      var penguin = { distance   : relDistance, 
-		      state      : state, 
-		      rawState   : rawState, 
-		      ledVals    : [ leds[0].value, leds[1].value, leds[2].value, leds[3].value ],
-		      minReading : minReading, 
-		      maxReading : maxReading};
+      if ( relDistance < relDistanceTh ) {
+	var reward = getReward(learnTracker.currentEpisode.nActionsTaken);
+        qlearner.stdin.write('REWARD ' + reward + '\nNEW_EPISODE\n');
+        resetLEDs();
+        learnTracker.nEpisodesPlayed += 1;
+        learnTracker.cumulativeReward += reward;
+	learnTracker.currentEpisode.nActionsTaken = 0;
+        socket.emit('info', learnTracker);
+      } else {
+        learnTracker.currentEpisode.nActionsTaken += 1;
+        // A penguin object we pass to the browser
+        var penguin = { distance   : relDistance, 
+			state      : state, 
+			rawState   : rawState, 
+			ledVals    : [ leds[0].value, leds[1].value, leds[2].value, leds[3].value ],
+			minReading : minReading, 
+			maxReading : maxReading};
 
-      // Pass penguin through the socket
-      socket.emit('reading', penguin);
+        // Pass penguin through the socket
+        socket.emit('reading', penguin);
 
-      // There needs to be enough characters to be written to stdin of the child process, 
-      // otherwise no flushing occurs
-      // NOTE: this is a hack and should be fixed
-      qlearner.stdin.write('STATE ' + state[0] + ' ' + state[1] + ' ' + state[2] + ' ' + state[3] + ' ' + relDistance + '\n');
-
+        // There needs to be enough characters to be written 
+        // to stdin of the child process, 
+        // otherwise no flushing occurs
+        // NOTE: this is a hack and should be fixed
+        qlearner.stdin.write('STATE ' + state[0] + ' ' + state[1] + ' ' + state[2] + ' ' + state[3] + '\n');
+      }
     }, 1000.0 / args['updateFreq'] )
   });
 

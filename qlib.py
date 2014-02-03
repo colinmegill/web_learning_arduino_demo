@@ -54,7 +54,7 @@ class ValueFunction(object):
         return self.Q.get( encode(state,action), 0 )
 
         
-    def updateValueByDelayedReward(self, replayMemory, reward, log = None):
+    def updateValueByDelayedReward(self, replayMemory, reward):
         """Given a delayed reward and the sequence of past states
         (a.k.a replay memory), updates the corresponding values."""
 
@@ -63,12 +63,6 @@ class ValueFunction(object):
         if n == 0:
             raise Exception("Cannot update the value function " +
                             "with empty replay memory!")
-
-        if log:
-            log.write('INFO ' +
-                      json.dumps({ 'nStatesInEpisode' : n,
-                                   'reward'           : reward,
-                                   'nStatesExplored'  : len(self.Q) }) + '\n')
             
         state_next,action_next = replayMemory[-1]
 

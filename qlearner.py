@@ -1,8 +1,8 @@
 #!/usr/bin/env python -u 
 
+import json
 import sys
 import qlib
-import io
 import argparse
 
 parser = argparse.ArgumentParser()
@@ -19,12 +19,6 @@ parser.add_argument("--actions",
                     type = str,
                     default = [],
                     help = 'A list of actions.')
-
-parser.add_argument("--relDistanceTh",
-                    metavar = '[0..1]',
-                    type = float,
-                    default = 0.05,
-                    help = 'Relative distance, how close should we get to the goal.')
 
 parser.add_argument("--epsilon",
                     metavar = '[0..1]',
@@ -94,73 +88,66 @@ log = open('log','w', 0)
 # What is the sequence of state-action pairs in the episode
 replayMemory = []
 
-# Keep track of how many episodes have been played
-episodeIdx = 0
-trainIdx = 0
+cumReward = 0.0
 
 while True:
-
+    
     # We need to read lines like this, otherwise the lines get buffered
     try:
-        line = inStream.readline()
+        line = inStream.readline().rstrip()
     except:
         break
 
-    # Read one line of input
-    ID,currState,relDistance = io.parseLine(line)
+    if line is None:
+        break
 
-    # If the state is close enough to the target...
-    if relDistance < args.relDistanceTh:
+    # log.write(line + '\n')
+        
+    ID = line.split(' ')[0]
 
-        # Reward that we get
-        reward = 1.0 - 1.0 * len(replayMemory) / args.replayMemorySize
+    if ID == 'STATE':
+
+        currState = line.split(' ')[1:]
+
+        if len(currState) != args.nStateDims:
+            raise Exception("Input state '" + currState + "' does not have " +
+                            str(args.nStateDims) + " elements!")
+        
+        # If we are not yet close enough to the goal, sample new action
+        action = value.getEpsilonGreedyAction(currState,args.actions)
+        
+        # Update replay memory
+        replayMemory.append( (currState,action) )
+        
+        # Send the delta action to the controller
+        msg = ' '.join(map(str,['DELTA_ACTION',action]))
+        outStream.write(msg + '\n')
+        outStream.flush()
+            
+    elif ID == 'REWARD':
+
+        cumReward += float(line.split(' ')[1])
+
+        n = len(replayMemory)
         
         # We can update the value function based on the replay memory
         # if it exists
-        if len(replayMemory) >= 1:
-            value.updateValueByDelayedReward(replayMemory, reward, log = log)
-            trainIdx += 1
+        if n >= 1:
+            value.updateValueByDelayedReward(replayMemory, cumReward)
+
+            msg = 'INFO ' + json.dumps({ 'nStatesExplored' : len(value.Q) })
             
-        # And send a reset action back to the controller
-        outStream.write('RESET_ACTION\n')
-        outStream.flush()
-
-        # Finish things up by erasing the replay memory,
-        # so that the new episode can start
-        replayMemory = []
-
-        # Increment episode index
-        episodeIdx += 1
-        
-    else:
-
-        # If we are not yet close enough to the goal, sample new action
-        action = value.getEpsilonGreedyAction(currState,args.actions)
-
-        # Update replay memory
-        replayMemory.append( (currState,action) )
-
-        # If the maximum replay memory size is not yet reached...
-        if len(replayMemory) < args.replayMemorySize:
-
-            # Send the delta action to the controller
-            msg = ' '.join(map(str,['DELTA_ACTION',action]))
             outStream.write(msg + '\n')
             outStream.flush()
+            log.write(msg + '\n')
             
-    # If we have used too many state transitions,
-    # We send a reset signal and start all over again
-    if len(replayMemory) == args.replayMemorySize:
+    elif ID == 'NEW_EPISODE':
 
-        # Send a reset action to the controller
-        outStream.write('RESET_ACTION\n')
-        outStream.flush()
-        
-        # And erase replay memory, because we'll start a new episode
         replayMemory = []
+        cumReward = 0.0
 
-        # Increment episode index
-        episodeIdx += 1
+    else:
+        break
 
 
 # If we need to save the model to file
