@@ -167,7 +167,6 @@ qlearner.stdout.on('data', function (buffer) {
 
 }); 
 
-
 // Create Getopt instance, bind option 'help' to
 // default action, and parse command line
 opt = require('node-getopt').create([
@@ -230,6 +229,7 @@ board.on("ready", function() {
   //maxReading = ...
 
   io.sockets.on('connection', function (socket){
+
     var check = setInterval(function(){
 
       console.log(state);

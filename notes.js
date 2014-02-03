@@ -1,4 +1,63 @@
 
+//d3 linegraph
+
+	w = 925,
+	h = 550,
+	margin = 30,
+	startYear = 1960, 
+	endYear = 2010,
+	startAge = 20,
+	endAge = 80,
+	
+	y = d3.scale.linear().domain([endAge, startAge]).range([0 + margin, h - margin]),
+	x = d3.scale.linear().domain([1960, 2009]).range([0 + margin -5, w]),
+	years = d3.range(startYear, endYear);
+
+
+var vis = d3.select("#vis")
+    .append("svg:svg")
+    .attr("width", w)
+    .attr("height", h)
+    .append("svg:g")
+
+			
+var line = d3.svg.line()
+    .x(function(d,i) { return x(d.x); })
+    .y(function(d) { return y(d.y); });
+
+
+
+
+vis.append("svg:path")
+    .data({})
+    .attr("d", line)
+
+
+
+
+
+var linegraphdata = {
+ 
+  run1distances: [
+    .8,
+    .7,
+    .6,
+    .2,
+    .1,
+    0
+  ],
+ 
+  run2distances: [
+    ...etc...
+  ]
+}
+
+
+
+
+
+
+// STDIN / STDOUT
 var util = require('util');
 var spawn = require('child_process').spawn;
 
