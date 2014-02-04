@@ -88,9 +88,11 @@ $(document).ready(function(){
       var line4 = d3.svg.line()
               .x(function(d,i) { return x4(d.x); })
               .y(function(d,i) { return y4(d.y); });
-      svg4.append("svg:path")
-            .data([info.pastEpisodes.distanceMat])
+      _.each(info.pastEpisodes.distanceMat, function(element, index){
+        svg4.append("svg:path")
+            .data([element])
             .attr("d", line4);
+      });
     });
 });
 

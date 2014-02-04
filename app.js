@@ -27,7 +27,8 @@ var learnTracker = {
     cumulativeReward : 0,
     nStatesExplored : 0,
     pastEpisodes : {
-	distanceMat : [ [], [], [], [], [], [], [], [], [], [] ]
+      reward2episode : [],
+      distanceMat : [ [], [], [], [], [], [], [], [], [], [] ]
     }
 };
 
@@ -248,8 +249,13 @@ board.on("ready", function() {
       // Episode index for keeping track of the past 10 episodes
       episodeIdx = learnTracker.nEpisodesPlayed % 10;
 
+      var trialIdx = learnTracker.pastEpisodes.distanceMat[episodeIdx].length
+
       // Add data to the learn tracker about the currently running episode
-      learnTracker.pastEpisodes.distanceMat[episodeIdx].push(relDistance);
+      learnTracker.pastEpisodes.distanceMat[episodeIdx].push({
+        "x" : trialIdx,
+        "y" : relDistance
+      });
 
       // If the distance is small enough, we can conlude the episode
       if ( relDistance < relDistanceTh ) {
@@ -277,6 +283,11 @@ board.on("ready", function() {
 
         // Increment cumulative rewards
         learnTracker.cumulativeReward += reward;
+
+        learnTracker.pastEpisodes.reward2episode.push({
+          "x": learnTracker.nEpisodesPlayed - 1,
+          "y": learnTracker.cumulativeReward / learnTracker.nEpisodesPlayed
+        });
 
         // Send the learn tracker data to the browser
         socket.emit('info', learnTracker);
