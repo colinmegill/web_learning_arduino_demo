@@ -28,7 +28,7 @@ var learnTracker = {
     nStatesExplored : 0,
     pastEpisodes : {
       reward2episode : [],
-      distanceMat : [ [], [], [], [], [], [], [], [], [], [] ]
+      distanceMat : []
     }
 };
 
@@ -249,10 +249,10 @@ board.on("ready", function() {
       // Episode index for keeping track of the past 10 episodes
       episodeIdx = learnTracker.nEpisodesPlayed % 10;
 
-      var trialIdx = learnTracker.pastEpisodes.distanceMat[episodeIdx].length
+      var trialIdx = learnTracker.pastEpisodes.distanceMat.length
 
       // Add data to the learn tracker about the currently running episode
-      learnTracker.pastEpisodes.distanceMat[episodeIdx].push({
+      learnTracker.pastEpisodes.distanceMat.push({
         "x" : trialIdx,
         "y" : relDistance
       });
@@ -263,7 +263,7 @@ board.on("ready", function() {
         // How many actions were taken? 
         var nActionsTaken = learnTracker
 	      .pastEpisodes
-	      .distanceMat[episodeIdx]
+	      .distanceMat
 	      .length
 
         // We conclude by first computing the reward of the episode
@@ -293,7 +293,7 @@ board.on("ready", function() {
         socket.emit('info', learnTracker);
 
         // Erase the learn tracker data for the next episode index
-        learnTracker.pastEpisodes.distanceMat[episodeIdx] = [];
+        learnTracker.pastEpisodes.distanceMat = [];
 
       } else {
 
