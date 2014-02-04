@@ -1,5 +1,6 @@
 #!/usr/bin/env python -u 
 
+import math
 import json
 import sys
 import qlib
@@ -25,6 +26,12 @@ parser.add_argument("--epsilon",
                     type = float,
                     default = 0.1,
                     help = 'Randomization parameter in the epsilon-greedy exploration.')
+
+parser.add_argument("--epsilonDecayRate",
+                    metavar = '[0..1]',
+                    type = float,
+                    default = 0.0001,
+                    help = 'How much the epsilon term decays over time.')
 
 parser.add_argument("--learnRate",
                     metavar = '[0..1]',
@@ -90,6 +97,8 @@ replayMemory = []
 
 cumReward = 0.0
 
+idx = 0
+
 while True:
     
     # We need to read lines like this, otherwise the lines get buffered
@@ -102,7 +111,11 @@ while True:
         break
 
     # log.write(line + '\n')
-        
+      
+    value.learnRate = 0.01 + args.learnRate * math.exp( - args.epsilonDecayRate * idx)
+  
+    idx += 1
+
     ID = line.split(' ')[0]
 
     if ID == 'STATE':

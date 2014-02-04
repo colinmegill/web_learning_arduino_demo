@@ -17,6 +17,7 @@
   ],
   "dependencies": {
     "d3": "~3.4.1",
-    "jquery": "~2.1.0"
+    "jquery": "~2.1.0",
+    "underscore": "~1.5.2"
   }
 }
