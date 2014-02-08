@@ -134,18 +134,19 @@ class ValueFunctionMLP(object):
                  epsilon = None,
                  learnRate = None,
                  discountRate = None):
-
-        self.epsilon   = epsilon
-        self.learnRate = learnRate
+        
+        self.epsilon      = epsilon
+        self.learnRate    = learnRate
         self.discountRate = discountRate
-        self.nActions = nActions
-
+        self.nActions     = nActions
+        
         states  = T.dmatrix('states')
         actions = T.lvector('actions')
         values  = T.dvector('values')
         
         model = MultiLayerPerceptronClassifier(x          = states,
                                                n_in       = nStateDims,
+                                               n_middle   = nStateDims * nActions,
                                                n_out      = nActions,
                                                randomInit = False )
 
@@ -185,39 +186,36 @@ class ValueFunctionMLP(object):
 
         n = len(replayMemory)
 
-        values = n * [None]
-        
         if n == 0:
             raise Exception("Cannot update the value function " +
                             "with empty replay memory!")
             
         state_next,action_next = replayMemory[-1]
 
-        Qcurr = self.getValue(state_next,action_next)
+        #Qcurr = self.getValue(state_next,action_next)
         
-        Qnew = Qcurr + self.learnRate * ( reward - Qcurr )
+        Qnew = reward 
 
+        states = [state_next]
+        actions = [action_next]
+        values = n * [None]
         values[-1] = copy.deepcopy(Qnew)
         
         for i in xrange(n-2,-1,-1):
 
             state,action = replayMemory[i]
 
-            Qnext = self.getValue(state_next,action_next)
-            Qcurr = self.getValue(state,action)
+            states.append(copy.deepcopy(state))
+            actions.append(copy.deepcopy(action))
 
+            Qnext = values[i+1] 
+            
             # How much is the new Q-value
-            Qnew = Qcurr + self.learnRate * ( self.discountRate * Qnext - Qcurr )
+            Qnew = self.discountRate * Qnext 
 
             values[i] = copy.deepcopy(Qnew)
             
-            state_next  = copy.deepcopy(state)
-            action_next = copy.deepcopy(action)
-
-        states  = [state  for state,action  in replayMemory]
-        actions = [action for state,action in replayMemory]
-
-        for i in xrange(int(math.ceil(reward * 10))):
+        for i in xrange(int(math.ceil(np.abs(reward) * 5))):
             self.update_Q(states,actions,values)
 
 

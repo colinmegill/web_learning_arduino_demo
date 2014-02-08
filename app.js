@@ -12,7 +12,7 @@ var spawn = require('child_process').spawn;
 
 // Spawn the learner with the following input arguments
 // NOTE: -u is supposed to treat streams unbuffered
-var qlearner = spawn('python', [
+var qlearner = spawn('python2.7', [
     'qlearner.py',
     '--actions'         ,'0,1','0,-1','1,1','1,-1','2,1','2,-1','3,1','3,-1',
     '--nStateDims'      ,'4',
@@ -56,19 +56,21 @@ var deltas = [30,30,30,30];
 
 // We will store the minimum and maximum readings of the photo sensors
 // so that our scaling eliminates the ambient lighting.
-var minReading = 20;
-var maxReading = 120;
+var minReading = 0;
+var maxReading = 200;
+
+var ledBoundaryExceeded = 0;
 
 // How many buckets per scaled reading? 
-//var minBucket = 0;
-//var maxBucket = 9;
+var minBucket = 0;
+var maxBucket = 9;
 
 var scaledSensorReading = function(x) {
 
-  //var val = Math.floor( (maxBucket - minBucket) * 
-  //			( x - minReading ) / 
-  //			( maxReading - minReading ) + 
-  //			minBucket );
+    //var val = Math.floor( (maxBucket - minBucket) * 
+    //			( x - minReading ) / 
+    //			( maxReading - minReading ) + 
+    //			minBucket );
 
   var val = x - minReading;
 
@@ -76,6 +78,9 @@ var scaledSensorReading = function(x) {
   val = val > maxReading ? maxReading : val;
     
   val /= 12;
+
+  //val = val < minBucket ? minBucket : val;
+  //val = val > maxBucket ? maxBucket : val;
 
   return val;
 
@@ -96,6 +101,10 @@ var processDeltaAction = function(actionStr) {
 
     // What is the new brightness value?
     var newBrightness = leds[pinID].value + sign * deltas[pinID];
+
+    if ( newBrightness < 0 || newBrightness > 255 ) {
+	ledBoundaryExceeded = 1;
+    }
 
     newBrightness = Math.max( 0, Math.min( newBrightness , 255 ) );
 
@@ -261,8 +270,7 @@ board.on("ready", function() {
         "y" : relDistance
       });
 
-      // If the distance is small enough, we can conlude the episode
-      if ( relDistance < relDistanceTh ) {
+      if ( ledBoundaryExceeded || relDistance < relDistanceTh ) {
 
         // How many actions were taken? 
         var nActionsTaken = learnTracker
@@ -272,6 +280,11 @@ board.on("ready", function() {
 
         // We conclude by first computing the reward of the episode
 	var reward = getReward(nActionsTaken);
+
+	if ( ledBoundaryExceeded ) {
+	    reward *= -1;
+	    ledBoundaryExceeded = 0;
+	}
 
         // Send the reward to the qlearner
         qlearner.stdin.write('REWARD ' + reward + '\nNEW_EPISODE\n');
