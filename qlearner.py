@@ -1,10 +1,10 @@
-#!/usr/bin/env python -u 
+#!/usr/bin/python
 
-import math
 import json
 import sys
 import qlib
 import argparse
+import numpy as np
 
 parser = argparse.ArgumentParser()
 
@@ -80,10 +80,11 @@ if args.loadModel:
 
 else:
     # Define a value function
-    value = qlib.ValueFunction( nStateDims   = args.nStateDims,
-                                epsilon      = args.epsilon,
-                                learnRate    = args.learnRate,
-                                discountRate = args.discountRate )
+    value = qlib.ValueFunctionMLP( nStateDims   = args.nStateDims,
+                                   nActions     = len(args.actions),
+                                   epsilon      = args.epsilon,
+                                   learnRate    = args.learnRate,
+                                   discountRate = args.discountRate )
 
 
 if len(args.actions) == 0:
@@ -120,20 +121,20 @@ while True:
 
     if ID == 'STATE':
 
-        currState = line.split(' ')[1:]
+        currState = np.array(map(float,line.split(' ')[1:]))
 
         if len(currState) != args.nStateDims:
-            raise Exception("Input state '" + currState + "' does not have " +
+            raise Exception("Input state '" + str(currState) + "' does not have " +
                             str(args.nStateDims) + " elements!")
         
         # If we are not yet close enough to the goal, sample new action
-        action = value.getEpsilonGreedyAction(currState,args.actions)
+        action = value.getEpsilonGreedyAction(currState)
         
         # Update replay memory
         replayMemory.append( (currState,action) )
         
         # Send the delta action to the controller
-        msg = ' '.join(map(str,['DELTA_ACTION',action]))
+        msg = ' '.join(map(str,['DELTA_ACTION',args.actions[action]]))
         outStream.write(msg + '\n')
         outStream.flush()
             
@@ -148,11 +149,11 @@ while True:
         if n >= 1:
             value.updateValueByDelayedReward(replayMemory, cumReward)
 
-            msg = 'INFO ' + json.dumps({ 'nStatesExplored' : len(value.Q) })
+            #msg = 'INFO ' + json.dumps({ 'nStatesExplored' : len(value.Q) })
             
-            outStream.write(msg + '\n')
-            outStream.flush()
-            log.write(msg + '\n')
+            #outStream.write(msg + '\n')
+            #outStream.flush()
+            #log.write(msg + '\n')
             
     elif ID == 'NEW_EPISODE':
 
@@ -164,8 +165,8 @@ while True:
 
 
 # If we need to save the model to file
-if args.saveModel:
-    value.save(args.saveModel)
+#if args.saveModel:
+#    value.save(args.saveModel)
 
 
 

@@ -79,7 +79,7 @@ var scaledSensorReading = function(x) {
 
 // Reward the player more the faster it gets to the right solution
 var getReward = function(nActions) {
-  return 1 * Math.exp( - 0.02 * ( nActions - 1 ) );
+  return 1 * Math.exp( - 0.01 * ( nActions - 1 ) );
 };
 
 var processDeltaAction = function(actionStr) {
