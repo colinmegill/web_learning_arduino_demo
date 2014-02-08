@@ -144,9 +144,10 @@ class ValueFunctionMLP(object):
         actions = T.lvector('actions')
         values  = T.dvector('values')
         
-        model = MultiLayerPerceptronClassifier(x     = states,
-                                               n_in  = nStateDims,
-                                               n_out = nActions)
+        model = MultiLayerPerceptronClassifier(x          = states,
+                                               n_in       = nStateDims,
+                                               n_out      = nActions,
+                                               randomInit = False )
 
         self.Q = theano.function(inputs  = [states,actions],
                                  outputs = model.output[T.arange(actions.shape[0]),actions])
@@ -169,9 +170,9 @@ class ValueFunctionMLP(object):
         # List the values of the actions
         values = [self.getValue(state,action) for action in xrange(self.nActions)]
 
-        # If the values are all negligible or
+        # If all the values are the same, or
         # if we choose to pick a random action
-        if random() < self.epsilon:
+        if len(set(values)) == 1 or random() < self.epsilon:
             return randint(self.nActions)
         else:
 
