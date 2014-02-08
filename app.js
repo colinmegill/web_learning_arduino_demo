@@ -60,19 +60,23 @@ var minReading = 20;
 var maxReading = 120;
 
 // How many buckets per scaled reading? 
-var minBucket = 0;
-var maxBucket = 9;
+//var minBucket = 0;
+//var maxBucket = 9;
 
 var scaledSensorReading = function(x) {
 
-  var val = Math.floor( (maxBucket - minBucket) * 
-			( x - minReading ) / 
-			( maxReading - minReading ) + 
-			minBucket );
+  //var val = Math.floor( (maxBucket - minBucket) * 
+  //			( x - minReading ) / 
+  //			( maxReading - minReading ) + 
+  //			minBucket );
 
-  val = val < minBucket ? minBucket : val;
-  val = val > maxBucket ? maxBucket : val;
+  var val = x - minReading;
+
+  val = val < 0 ? 0 : val;
+  val = val > maxReading ? maxReading : val;
     
+  val /= 12;
+
   return val;
 
 };
