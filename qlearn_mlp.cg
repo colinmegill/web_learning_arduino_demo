@@ -1,9 +1,10 @@
 description: LED sum reinforcement learner
-type: classifier
+type: reinforcement-learner
 n_in: 4
 n_out: 8
 randomInit: False
 graph:
 - tanh 5
-- softmax 8
+- tanh 5
+- tanh 8
 
