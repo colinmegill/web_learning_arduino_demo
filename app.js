@@ -16,9 +16,10 @@ var qlearner = spawn('python2.7', [
     'qlearner.py',
     '--actions'         ,'0,1','0,-1','1,1','1,-1','2,1','2,-1','3,1','3,-1',
     '--nStateDims'      ,'4',
-    '--epsilon'         ,'0.2',
-    '--learnRate'       ,'0.5',
-    '--discountRate'    ,'0.5',
+    '--epsilon'         ,'1.0',
+    '--epsilonDecayRate','0.00001',
+    '--learnRate'       ,'0.02',
+    '--discountRate'    ,'0.2',
     '--replayMemorySize','100',
     '--saveModel'       ,'model.json']) 
 
@@ -43,7 +44,7 @@ var rawState = [0,0,0,0];
 
 // What is the goal, which is the 
 // sum of the intensities of the photo sensors
-var goal = 20;
+var goal = 2;
 
 // And how far are we from the goal
 var relDistance;
@@ -57,38 +58,29 @@ var deltas = [30,30,30,30];
 // We will store the minimum and maximum readings of the photo sensors
 // so that our scaling eliminates the ambient lighting.
 var minReading = 0;
-var maxReading = 200;
+var maxReading = minReading + 200;
 
+// In the beginning we want to calibrate the min and max readings
+var calibrateSensorReadings = 1;
+
+// This one turns on every time the learner tries to set LED values
+// beyond limits
 var ledBoundaryExceeded = 0;
-
-// How many buckets per scaled reading? 
-var minBucket = 0;
-var maxBucket = 9;
 
 var scaledSensorReading = function(x) {
 
-    //var val = Math.floor( (maxBucket - minBucket) * 
-    //			( x - minReading ) / 
-    //			( maxReading - minReading ) + 
-    //			minBucket );
-
-  var val = x - minReading;
+  var val = ( x - minReading ) / (maxReading - minReading);
 
   val = val < 0 ? 0 : val;
-  val = val > maxReading ? maxReading : val;
+  val = val > 1 ? 1 : val;
     
-  val /= 12;
-
-  //val = val < minBucket ? minBucket : val;
-  //val = val > maxBucket ? maxBucket : val;
-
   return val;
 
 };
 
 // Reward the player more the faster it gets to the right solution
 var getReward = function(nActions) {
-  return 1 * Math.exp( - 0.01 * ( nActions - 1 ) );
+  return 1 * Math.exp( - 0.02 * ( nActions - 1 ) );
 };
 
 var processDeltaAction = function(actionStr) {
@@ -239,13 +231,6 @@ board.on("ready", function() {
   // We reset the LEDs in case they are lit
   resetLEDs();
 
-  // We will get the minimum intensity reading now that all LEDs are off.
-  // This minimum intensity corresponds to the surrounding lighting.
-  // NOTE: how do we get proper minimum and maximum readings so that 
-  // all sensor readings can be normalized to a preset range?
-  //minReading = sensorGreen.value;
-  //maxReading = ...
-
   io.sockets.on('connection', function (socket){
 
     var check = setInterval(function(){
@@ -282,35 +267,44 @@ board.on("ready", function() {
 	var reward = getReward(nActionsTaken);
 
 	if ( ledBoundaryExceeded ) {
+
 	    reward *= -1;
+
 	    ledBoundaryExceeded = 0;
+
+	    // Send the reward to the qlearner
+            qlearner.stdin.write('REWARD ' + reward + '\n');
+
+	} else {
+
+	    // Increment cumulative rewards
+            learnTracker.cumulativeReward += reward;
+
+	    // Increment episode counter
+            learnTracker.nEpisodesPlayed += 1;
+	    
+            // Get the new episode index 
+            episodeIdx = learnTracker.nEpisodesPlayed % 10;
+
+	    // Erase the learn tracker data for the next episode index
+            learnTracker.pastEpisodes.distanceMat = [];
+
+	    // Reset LEDs
+	    resetLEDs();
+
+	    learnTracker.pastEpisodes.reward2episode.push({
+		"x": learnTracker.nEpisodesPlayed - 1,
+		"y": learnTracker.cumulativeReward / learnTracker.nEpisodesPlayed
+            });
+
+	    // Send the learn tracker data to the browser
+            socket.emit('info', learnTracker);
+
+	    // Send the reward to the qlearner
+            qlearner.stdin.write('REWARD ' + reward + '\nNEW_EPISODE\n');
+
 	}
 
-        // Send the reward to the qlearner
-        qlearner.stdin.write('REWARD ' + reward + '\nNEW_EPISODE\n');
-
-        // Reset the LEDs 
-        resetLEDs();
-
-        // Increment episode counter
-        learnTracker.nEpisodesPlayed += 1;
-
-        // Get the new episode index 
-        episodeIdx = learnTracker.nEpisodesPlayed % 10;
-
-        // Increment cumulative rewards
-        learnTracker.cumulativeReward += reward;
-
-        learnTracker.pastEpisodes.reward2episode.push({
-          "x": learnTracker.nEpisodesPlayed - 1,
-          "y": learnTracker.cumulativeReward / learnTracker.nEpisodesPlayed
-        });
-
-        // Send the learn tracker data to the browser
-        socket.emit('info', learnTracker);
-
-        // Erase the learn tracker data for the next episode index
-        learnTracker.pastEpisodes.distanceMat = [];
 
       } else {
 
@@ -339,6 +333,11 @@ board.on("ready", function() {
 
   // Update state and raw state
   sensorGreen.on("data", function() {
+    if ( calibrateSensorReadings ) {
+      minReading = this.value;
+      maxReading = minReading + 200;
+      calibrateSensorReadings = 0;
+    }
     rawState[0] = this.value;
     state[0]    = scaledSensorReading(this.value);
   });
