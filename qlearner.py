@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import json
+import math
 import sys
 import qlib
 import argparse
@@ -30,7 +30,7 @@ parser.add_argument("--epsilon",
 parser.add_argument("--epsilonDecayRate",
                     metavar = '[0..1]',
                     type = float,
-                    default = 0.0001,
+                    default = 0.00001,
                     help = 'How much the epsilon term decays over time.')
 
 parser.add_argument("--learnRate",
@@ -74,17 +74,12 @@ inStream  = sys.stdin
 # NOTE: stream flushes everything it gets
 outStream = sys.stdout 
 
-# If model needs to be loaded from file
-if args.loadModel:
-    value = qlib.ValueFunction.load(args.loadModel)
-
-else:
-    # Define a value function
-    value = qlib.ValueFunctionMLP( nStateDims   = args.nStateDims,
-                                   nActions     = len(args.actions),
-                                   epsilon      = args.epsilon,
-                                   learnRate    = args.learnRate,
-                                   discountRate = args.discountRate )
+# Define a value function
+value = qlib.ValueFunctionMLP( nStateDims   = args.nStateDims,
+                               nActions     = len(args.actions),
+                               epsilon      = args.epsilon,
+                               learnRate    = args.learnRate,
+                               discountRate = args.discountRate )
 
 
 if len(args.actions) == 0:
@@ -95,8 +90,6 @@ log = open('log','w', 0)
 
 # What is the sequence of state-action pairs in the episode
 replayMemory = []
-
-cumReward = 0.0
 
 idx = 0
 
@@ -113,7 +106,7 @@ while True:
 
     # log.write(line + '\n')
       
-    #value.learnRate = 0.01 + args.learnRate * math.exp( - args.epsilonDecayRate * idx)
+    value.learnRate = 0.2 + 0.8 * args.learnRate * math.exp( - args.epsilonDecayRate * idx)
   
     idx += 1
 
@@ -140,33 +133,24 @@ while True:
             
     elif ID == 'REWARD':
 
-        cumReward += float(line.split(' ')[1])
+        reward = float(line.split(' ')[1])
 
         n = len(replayMemory)
         
         # We can update the value function based on the replay memory
         # if it exists
-        if n >= 1:
-            value.updateValueByDelayedReward(replayMemory, cumReward)
+        if n >= 1 and reward > 0:
+            value.updateValueByDelayedReward(replayMemory, reward)
+        elif n >= 1 and reward < 0:
+            value.updateValueByDelayedReward([replayMemory[-1]], reward)
+            replayMemory.pop()
 
-            #msg = 'INFO ' + json.dumps({ 'nStatesExplored' : len(value.Q) })
-            
-            #outStream.write(msg + '\n')
-            #outStream.flush()
-            #log.write(msg + '\n')
-            
     elif ID == 'NEW_EPISODE':
 
         replayMemory = []
-        cumReward = 0.0
 
     else:
         break
-
-
-# If we need to save the model to file
-#if args.saveModel:
-#    value.save(args.saveModel)
 
 
 
