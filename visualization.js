@@ -7,11 +7,11 @@ for (i=0; i<100; i++) {
 
 var LASTINFO;
 
-var w = 600;
+var w = 1200;
 var h = 300;
 var distance_plot_w = w;
-var distance_plot_h = h * 2;
-
+var distance_plot_h = h;
+var margin = 30;
 var barpadding = 1;
 
 /* led circles setup */
@@ -28,22 +28,58 @@ var circles = svg.selectAll("circle")
 
 //setup GAIN linegraph
 
-var margin = 30;
 var svg3 = d3.select("#gain")
               .append("svg:svg")
               .attr("width", distance_plot_w)
               .attr("height", distance_plot_h)
               .append("svg:g");
 
+var xAxis3 = d3.svg.axis()
+                .scale(d3.scale.linear()) //identity scale to make it work
+                .orient("bottom")
+      
+svg3.append("g")
+    .attr("class","xAxis3")
+    .call(xAxis3)
+
+var yAxis3 = d3.svg.axis()
+                .scale(d3.scale.linear())
+                .orient("left")
+svg3.append("g")
+      .attr("class", "yAxis3")
+      .call(yAxis3)
+
+
+
 svg3.append("svg:path")
               .data([[{"x":0},{"y":0}]])
               .enter();
+
+
+//setup density plot
 
 var svg4 = d3.select("#distance_plot")
               .append("svg:svg")
               .attr("width", distance_plot_w)
               .attr("height", distance_plot_h)
               .append("svg:g");
+
+var xAxis4 = d3.svg.axis()
+                .scale(d3.scale.linear()) //identity scale to make it work
+                .orient("bottom")
+      
+svg4.append("g")
+    .attr("class","xAxis4")
+    .call(xAxis4)
+
+var yAxis4 = d3.svg.axis()
+                .scale(d3.scale.linear())
+                .orient("left")
+
+svg3.append("g")
+      .attr("class", "yAxis4")
+      .call(yAxis4)
+
 
 $(document).ready(function(){
 
@@ -55,9 +91,9 @@ $(document).ready(function(){
       $('#blue').text("Blue: " + penguin.state[3])
     	var circlesToUpdate = svg.selectAll("circle")
             .data(penguin.state)
-            .attr("cx", function(d, i) { return (i * 50) + 25; })
+            .attr("cx", function(d, i) { return (i * 100) + 200; })
             .attr("cy", h/2)
-            .attr("r", function(d) { return d; })
+            .attr("r", function(d) { return d*3; })
             .attr("fill", function(d, i) {
       		    return choosefill(i)
       	    });
@@ -73,8 +109,21 @@ $(document).ready(function(){
       LASTINFO = info;
 
       //svg3 gain
-      var x3 = d3.scale.linear().domain([0, info.pastEpisodes.reward2episode.length]).range([0 + margin -5, w]);
-      var y3 = d3.scale.linear().domain([0, 1.0]).range([0 + margin, h - margin]);
+      var x3 = d3.scale.linear().domain([0, info.pastEpisodes.reward2episode.length]).range([20 + margin -5, w]);
+      var y3 = d3.scale.linear().domain([0, 1.0]).range([h - margin, 0 + margin]);
+
+      var xAxis3updater = d3.svg.axis()
+                .scale(x3) 
+                .orient("bottom")
+      var yAxis3updater = d3.svg.axis()
+                .scale(y3)
+                .orient("left")
+      svg3.selectAll("g.xAxis3")
+          .call(xAxis3updater)
+      svg3.selectAll("g.yAxis3")
+          .attr("transform", "translate(30,0)")
+          .call(yAxis3updater)
+
       var line = d3.svg.line()
               .x(function(d,i) { return x3(d.x); })
               .y(function(d,i) { return y3(d.y); })
@@ -83,8 +132,24 @@ $(document).ready(function(){
         .attr("d", line)
 
       //svg4 distances over trials, lines are episodes
-      var x4 = d3.scale.linear().domain([0, 100]).range([0 + margin -5, w]);
-      var y4 = d3.scale.linear().domain([0, 1.0]).range([0 + margin, h - margin]);
+      var x4 = d3.scale.linear().domain([0, 150]).range([0 + margin -5, w]);
+      var y4 = d3.scale.linear().domain([0, 1.0]).range([h - margin, 0 + margin]);
+
+
+
+
+      var xAxis4updater = d3.svg.axis()
+                .scale(x4) 
+                .orient("bottom")
+      // var yAxis4updater = d3.svg.axis()
+      //           .scale(y4)
+      //           .orient("left")
+      svg4.selectAll("g.xAxis4")
+          .call(xAxis4updater)
+      // svg4.selectAll("g.yAxis4")
+      //     .attr("transform", "translate(30,0)")
+      //     .call(yAxis4updater)
+
       var line4 = d3.svg.line()
               .x(function(d,i) { return x4(d.x); })
               .y(function(d,i) { return y4(d.y); });

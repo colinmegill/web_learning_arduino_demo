@@ -89,10 +89,10 @@ class ValueFunction(object):
             Qnext = self.getQValue(state_next,action_next)
             Qcurr = self.getQValue(state,action)
 
-            delta = Qnext - Qcurr
+            #delta = Qnext - Qcurr
             
             # How much is the new Q-value
-            Qnew = Qcurr + self.learnRate * ( 0 + self.discountRate * delta )
+            Qnew = Qcurr + self.learnRate * ( 0 + self.discountRate * Qnext - Qcurr )
 
             # Set new Q-value
             self.setQValue(state,action,Qnew)
