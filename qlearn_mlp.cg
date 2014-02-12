@@ -1,10 +1,19 @@
 description: LED sum reinforcement learner
+
 type: reinforcement-learner
-n_in: 4
-n_out: 8
+
 randomInit: False
+
 graph:
-- tanh 5
-- tanh 5
-- tanh 8
+
+ - activation: linrect
+         n_in: 4
+        n_out: 5
+      dropout: 0.2
+
+ - activation: tanh
+         n_in: 5
+        n_out: 8
+      dropout: 0.5
+
 
