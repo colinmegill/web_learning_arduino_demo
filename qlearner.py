@@ -88,7 +88,7 @@ if len(args.actions) == 0:
 # Open log for writing, unbuffered
 log = open('log','w', 0)
 
-# What is the sequence of state-action pairs in the episode
+# Stores a sampled sequence of state-action pairs 
 replayMemory = []
 
 idx = 0
@@ -117,7 +117,8 @@ while True:
         currState = np.array(map(float,line.split(' ')[1:]))
 
         if len(currState) != args.nStateDims:
-            raise Exception("Input state '" + str(currState) + "' does not have " +
+            raise Exception("Input state '" +
+                            str(currState) + "' does not have " +
                             str(args.nStateDims) + " elements!")
         
         # If we are not yet close enough to the goal, sample new action
@@ -139,11 +140,34 @@ while True:
         
         # We can update the value function based on the replay memory
         # if it exists
-        if n >= 1 and reward > 0:
-            value.updateValueByDelayedReward(replayMemory, reward)
-        elif n >= 1 and reward < 0:
-            value.updateValueByDelayedReward([replayMemory[-1]], reward)
-            replayMemory.pop()
+        #if n > 10:
+        #    thinnedReplayMemory = [replayMemory[i] for i in xrange(n-1)
+        #                           if np.max(np.abs([replayMemory[i][0][k]-replayMemory[i+1][0][k] for k in xrange(args.nStateDims)])) > 0.1] + [replayMemory[-1]]
+        #else:
+        thinnedReplayMemory = replayMemory
+
+            #thinnedReplayMemory = [replayMemory[i] for i in xrange(n-1)
+        #                       if np.max(np.abs(replayMemory[i]-replayMemory[i+1])) > 0.1] + [replayMemory[-1]]
+            
+        #if n >= 10:
+        #    thinnedReplayMemory = [replayMemory[i] for i in sorted(np.random.choice(n,size=10,replace=False))] + [replayMemory[-1]]
+        #else:
+        #    thinnedReplayMemory = replayMemory
+
+        nThin = len(thinnedReplayMemory)
+            
+        if log:
+            log.write('Thinned replay memory from ' + str(n) +
+                      ' elements to ' + str(nThin) +
+                      ' elements where reward is ' + str(reward) + '\n')
+
+        if nThin > 0:
+            value.updateValueByDelayedReward(thinnedReplayMemory,
+                                             reward,
+                                             log = log)
+        #elif n >= 1 and reward < 0:
+        #    value.updateValueByDelayedReward([replayMemory[-1]], reward)
+        #    replayMemory.pop()
 
     elif ID == 'NEW_EPISODE':
 

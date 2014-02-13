@@ -62,7 +62,7 @@ class ValueFunctionMLP(object):
             # Otherwise we pick the action that has the highest value
             return np.argmax(values)
             
-    def updateValueByDelayedReward(self, replayMemory, reward):
+    def updateValueByDelayedReward(self, replayMemory, reward, log = None):
         """Given a delayed reward and the sequence of past states
         (a.k.a replay memory), updates the corresponding values."""
 
@@ -100,9 +100,12 @@ class ValueFunctionMLP(object):
             states[i]  = copy.deepcopy(state)
             actions[i] = copy.deepcopy(action)
             values[i]  = self.discountRate * values[i+1]
+
+
+        if log:
+            log.write('target value sequence is: ' + str(values) + '\n')
             
-        for i in xrange(int(math.ceil( np.abs(reward) * 5 ))):
-            self.update_Q(states,actions,values)
+        self.update_Q(states,actions,values)
 
 
 

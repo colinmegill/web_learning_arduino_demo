@@ -18,8 +18,8 @@ var qlearner = spawn('python2.7', [
     '--nStateDims'      ,'4',
     '--epsilon'         ,'0.1',
     '--epsilonDecayRate','0.00001',
-    '--learnRate'       ,'0.05',
-    '--discountRate'    ,'0.5',
+    '--learnRate'       ,'0.1',
+    '--discountRate'    ,'0.9',
     '--replayMemorySize','100',
     '--saveModel'       ,'model.json']) 
 
@@ -259,7 +259,7 @@ board.on("ready", function() {
  
       // Every time the learner hits the LED wall, reward is decreased
       if ( ledBoundaryExceeded ) {
-	reward += -1 / 100;
+	//reward += -2 / 100;
 	ledBoundaryExceeded = 0;
       }
 
@@ -272,7 +272,9 @@ board.on("ready", function() {
 	      .length
 
         // We conclude by first computing the reward of the episode
-	reward += 1; //getReward(nActionsTaken);
+	if ( relDistance < relDistanceTh ) {
+	  reward += 1; //getReward(nActionsTaken);
+	}
 
 	// Increment cumulative rewards
         learnTracker.cumulativeReward += reward;
@@ -316,10 +318,7 @@ board.on("ready", function() {
         // Pass penguin through the socket
         socket.emit('reading', penguin);
 
-        // There needs to be enough characters to be written 
-        // to stdin of the child process, 
-        // otherwise no flushing occurs
-        // NOTE: this is a hack and should be fixed
+	// Pass the current state to the qlearner app
         qlearner.stdin.write('STATE ' + state[0] + ' ' + state[1] + ' ' + state[2] + ' ' + state[3] + '\n');
 
       }
@@ -331,7 +330,7 @@ board.on("ready", function() {
   // Update state and raw state
   sensorGreen.on("data", function() {
     if ( calibrateSensorReadings ) {
-      minReading = this.value !== null ? this.value : 0;
+      minReading = 40; //this.value !== null ? this.value : 0;
       maxReading = minReading + 200;
       calibrateSensorReadings = 0;
     }

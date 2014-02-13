@@ -16,7 +16,7 @@ graph:
    n_out:      30
    dropout:    0.5
 
- - activation: tanh
+ - activation: softmax
    n_in:       30
    n_out:      8
    dropout:    0.5
