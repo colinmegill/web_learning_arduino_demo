@@ -106,7 +106,7 @@ while True:
 
     # log.write(line + '\n')
       
-    value.learnRate = 0.2 + 0.8 * args.learnRate * math.exp( - args.epsilonDecayRate * idx)
+    value.epsilon = args.epsilon * math.exp( - args.epsilonDecayRate * idx)
   
     idx += 1
 

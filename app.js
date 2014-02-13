@@ -16,10 +16,10 @@ var qlearner = spawn('python2.7', [
     'qlearner.py',
     '--actions'         ,'0,1','0,-1','1,1','1,-1','2,1','2,-1','3,1','3,-1',
     '--nStateDims'      ,'4',
-    '--epsilon'         ,'1.0',
+    '--epsilon'         ,'0.1',
     '--epsilonDecayRate','0.00001',
-    '--learnRate'       ,'0.02',
-    '--discountRate'    ,'0.2',
+    '--learnRate'       ,'0.05',
+    '--discountRate'    ,'0.5',
     '--replayMemorySize','100',
     '--saveModel'       ,'model.json']) 
 
@@ -63,6 +63,8 @@ var maxReading = minReading + 200;
 // In the beginning we want to calibrate the min and max readings
 var calibrateSensorReadings = 1;
 
+var reward = 0.0;
+
 // This one turns on every time the learner tries to set LED values
 // beyond limits
 var ledBoundaryExceeded = 0;
@@ -80,7 +82,7 @@ var scaledSensorReading = function(x) {
 
 // Reward the player more the faster it gets to the right solution
 var getReward = function(nActions) {
-  return 1 * Math.exp( - 0.02 * ( nActions - 1 ) );
+  return 1 * Math.exp( - 0.01 * ( nActions - 1 ) );
 };
 
 var processDeltaAction = function(actionStr) {
@@ -254,8 +256,14 @@ board.on("ready", function() {
         "x" : trialIdx,
         "y" : relDistance
       });
+ 
+      // Every time the learner hits the LED wall, reward is decreased
+      if ( ledBoundaryExceeded ) {
+	reward += -1 / 100;
+	ledBoundaryExceeded = 0;
+      }
 
-      if ( ledBoundaryExceeded || relDistance < relDistanceTh ) {
+      if ( trialIdx >= 100 || relDistance < relDistanceTh ) {
 
         // How many actions were taken? 
         var nActionsTaken = learnTracker
@@ -264,46 +272,35 @@ board.on("ready", function() {
 	      .length
 
         // We conclude by first computing the reward of the episode
-	var reward = getReward(nActionsTaken);
+	reward += 1; //getReward(nActionsTaken);
 
-	if ( ledBoundaryExceeded ) {
+	// Increment cumulative rewards
+        learnTracker.cumulativeReward += reward;
 
-	    reward *= -1;
+	// Increment episode counter
+        learnTracker.nEpisodesPlayed += 1;
+	
+        // Get the new episode index 
+        episodeIdx = learnTracker.nEpisodesPlayed % 10;
 
-	    ledBoundaryExceeded = 0;
+	// Erase the learn tracker data for the next episode index
+        learnTracker.pastEpisodes.distanceMat = [];
 
-	    // Send the reward to the qlearner
-            qlearner.stdin.write('REWARD ' + reward + '\n');
+	// Reset LEDs
+	resetLEDs();
 
-	} else {
+	learnTracker.pastEpisodes.reward2episode.push({
+	    "x": learnTracker.nEpisodesPlayed - 1,
+	    "y": learnTracker.cumulativeReward / learnTracker.nEpisodesPlayed
+        });
 
-	    // Increment cumulative rewards
-            learnTracker.cumulativeReward += reward;
+	// Send the learn tracker data to the browser
+        socket.emit('info', learnTracker);
 
-	    // Increment episode counter
-            learnTracker.nEpisodesPlayed += 1;
-	    
-            // Get the new episode index 
-            episodeIdx = learnTracker.nEpisodesPlayed % 10;
+	// Send the reward to the qlearner
+        qlearner.stdin.write('REWARD ' + reward + '\nNEW_EPISODE\n');
 
-	    // Erase the learn tracker data for the next episode index
-            learnTracker.pastEpisodes.distanceMat = [];
-
-	    // Reset LEDs
-	    resetLEDs();
-
-	    learnTracker.pastEpisodes.reward2episode.push({
-		"x": learnTracker.nEpisodesPlayed - 1,
-		"y": learnTracker.cumulativeReward / learnTracker.nEpisodesPlayed
-            });
-
-	    // Send the learn tracker data to the browser
-            socket.emit('info', learnTracker);
-
-	    // Send the reward to the qlearner
-            qlearner.stdin.write('REWARD ' + reward + '\nNEW_EPISODE\n');
-
-	}
+	reward = 0.0
 
 
       } else {
@@ -334,7 +331,7 @@ board.on("ready", function() {
   // Update state and raw state
   sensorGreen.on("data", function() {
     if ( calibrateSensorReadings ) {
-      minReading = this.value;
+      minReading = this.value !== null ? this.value : 0;
       maxReading = minReading + 200;
       calibrateSensorReadings = 0;
     }

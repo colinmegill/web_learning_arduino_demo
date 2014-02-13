@@ -35,7 +35,7 @@ class ValueFunctionMLP(object):
         self.Q = theano.function(inputs  = [states,actions],
                                  outputs = model.output[T.arange(actions.shape[0]),actions])
 
-        cost = sqerrCost(model.output[T.arange(actions.shape[0]),actions],values)
+        cost = sqerrCost(model.dropoutOutput[T.arange(actions.shape[0]),actions],values)
         
         optimizer = MSGD(cost      = cost,
                          params    = model.params,
@@ -76,9 +76,9 @@ class ValueFunctionMLP(object):
 
         # When the reward is negative, we only reinforce the model
         # to not repeat that last move
-        if reward < 0:
-            self.update_Q([state],[action],[reward])
-            return
+        #if reward < 0:
+        #    self.update_Q([state],[action],[reward])
+        #    return
             
         # If the reward is positive, we want to reinforce the
         # whole replay memory
