@@ -32,11 +32,11 @@ var qlearner = spawn('python2.7', [
     'qlearner.py',
     '--actions'         ,'0,1','0,-1','1,1','1,-1','2,1','2,-1','3,1','3,-1',
     '--nStateDims'      ,'5',
-    '--epsilon'         ,'0.05',
+    '--epsilon'         ,'0.1',
     '--epsilonDecayRate','0.00001',
     '--learnRate'       ,'0.1',
     '--discountRate'    ,'0.00',
-    '--replayMemorySize','100',
+    '--replayMemorySize','1000',
     '--miniBatchSize'   ,'10']) 
 
 var learnTracker = {
