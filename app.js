@@ -10,44 +10,59 @@ var servo;
 var util = require('util');
 var spawn = require('child_process').spawn;
 
+var socket;
+
+// Create Getopt instance, bind option 'help' to
+// default action, and parse command line
+opt = require('node-getopt').create([
+  ['f', 'updateFreq=FREQ', 'Update frequency (Hz) of the system'],
+  ['d', 'device=DEVICE'  , 'Which device to use'],
+  ['p', 'port=PORT'      , 'Which port to use'],
+  ['h', 'help'           , 'display this help'],
+])
+.bindHelp()
+.parseSystem();
+
+// Create a short cut to the arguments
+var args = opt['options'];
+
 // Spawn the learner with the following input arguments
 // NOTE: -u is supposed to treat streams unbuffered
 var qlearner = spawn('python2.7', [
     'qlearner.py',
     '--actions'         ,'0,1','0,-1','1,1','1,-1','2,1','2,-1','3,1','3,-1',
-    '--nStateDims'      ,'4',
-    '--epsilon'         ,'0.1',
+    '--nStateDims'      ,'5',
+    '--epsilon'         ,'0.05',
     '--epsilonDecayRate','0.00001',
     '--learnRate'       ,'0.1',
-    '--discountRate'    ,'0.9',
+    '--discountRate'    ,'0.00',
     '--replayMemorySize','100',
-    '--saveModel'       ,'model.json']) 
+    '--miniBatchSize'   ,'10']) 
 
 var learnTracker = {
     nEpisodesPlayed : 0,
-    cumulativeReward : 0,
-    nStatesExplored : 0,
+    totalActionsTaken : 0,
+    cumulativeReward: 0,
     pastEpisodes : {
       reward2episode : [],
-      distanceMat : []
     }
 };
 
 // Store state of the system.
 // Here, state is the vector of light intensities
 // with some discretization and bucketization
-var state    = [0,0,0,0];
+var state    = [0,0,0,0,0];
 
 // The raw state is same as the state, but no
 // discretization or bucketization has been added
-var rawState = [0,0,0,0];
+var rawState = [0,0,0,0,0];
 
 // What is the goal, which is the 
 // sum of the intensities of the photo sensors
 var goal = 2;
 
 // And how far are we from the goal
-var relDistance;
+var relDistance = 1.0;
 
 // How close we should get in order to get reward?
 var relDistanceTh = 0.05;
@@ -60,14 +75,11 @@ var deltas = [30,30,30,30];
 var minReading = 0;
 var maxReading = minReading + 200;
 
-// In the beginning we want to calibrate the min and max readings
-var calibrateSensorReadings = 1;
-
 var reward = 0.0;
 
 // This one turns on every time the learner tries to set LED values
 // beyond limits
-var ledBoundaryExceeded = 0;
+var ledBoundaryExceeded = false;
 
 var scaledSensorReading = function(x) {
 
@@ -78,11 +90,6 @@ var scaledSensorReading = function(x) {
     
   return val;
 
-};
-
-// Reward the player more the faster it gets to the right solution
-var getReward = function(nActions) {
-  return 1 * Math.exp( - 0.01 * ( nActions - 1 ) );
 };
 
 var processDeltaAction = function(actionStr) {
@@ -97,7 +104,7 @@ var processDeltaAction = function(actionStr) {
     var newBrightness = leds[pinID].value + sign * deltas[pinID];
 
     if ( newBrightness < 0 || newBrightness > 255 ) {
-	ledBoundaryExceeded = 1;
+	ledBoundaryExceeded = true;
     }
 
     newBrightness = Math.max( 0, Math.min( newBrightness , 255 ) );
@@ -134,61 +141,22 @@ qlearner.stdout.on('data', function (buffer) {
   // Convert string to utf-8 and remove newline character
   var lines = buffer.toString('utf8').split('\n');
   
-  for ( var i = 0; i < lines.length; ++i ) {
+  for ( var i = 0; i < lines.length - 1; ++i ) {
     
     var line = lines[i];
       
-    if ( line === undefined || line.length === 0 ) {
-      continue;
-    }
+    var obj = JSON.parse(line)
 
-    // Action is the first element in the field
-    var actionID = line.split(' ')[0];
-    
-    // If it's a delta action
-    if ( actionID === 'DELTA_ACTION' ) {
-      	    
-      // Extract the action string...
-      var actionStr = line.split(' ')[1];
-    
-      // ... and pass to the processor
-      // leds will be modified
-      processDeltaAction(actionStr);
+    // leds will be modified
+    processDeltaAction(obj["action"]);
 
-    } else if ( actionID === "INFO" ) {
-	    
-      var info = JSON.parse( line.substr(5) );
-
-      learnTracker.nStatesExplored = info.nStatesExplored;
-
-      // Add learn tracker and send to browser
-
-    } else {
-
-      console.log("Erroneous line: " + line + '\n');
-      process.exit(1);
-
-    }
+    setTimeout(processStatus, 1000 / args['updateFreq'] );
 
   }
 
   console.log(lines + '\n');
 
 }); 
-
-// Create Getopt instance, bind option 'help' to
-// default action, and parse command line
-opt = require('node-getopt').create([
-  ['f', 'updateFreq=FREQ', 'Update frequency (Hz) of the system'],
-  ['d', 'device=DEVICE'  , 'Which device to use'],
-  ['p', 'port=PORT'      , 'Which port to use'],
-  ['h', 'help'           , 'display this help'],
-])
-.bindHelp()
-.parseSystem();
-
-// Create a short cut to the arguments
-var args = opt['options'];
 
 // Which port to listen
 server.listen(args['port']);
@@ -199,6 +167,95 @@ board = new five.Board({
   port: args['device']
 });
 
+var processStatus = function() {
+
+    // Log the state we're in
+    console.log(state);
+    
+    // Get the sum of the intensities
+    sum = state[0] + state[1] + state[2] + state[3];
+    
+    // How close are we to the goal
+    var newRelDistance = Math.abs( (goal - sum) / goal );
+    
+    var reward = relDistance - newRelDistance;
+
+    if ( ledBoundaryExceeded ) {
+      reward = - 0.1;
+      ledBoundaryExceeded = false;
+    }
+    
+    relDistance = newRelDistance;
+    
+    nActionsTaken += 1;
+    
+    learnTracker.totalActionsTaken += 1;
+    
+    learnTracker.cumulativeReward += reward;
+    
+    if ( nActionsTaken >= 100 || relDistance < relDistanceTh ) {
+	
+	var isTerminal;
+	
+        // We conclude by first computing the reward of the episode
+	if ( relDistance < relDistanceTh ) {
+	    reward = 1;
+            isTerminal = 1;
+	} else {
+	    isTerminal = 0;
+        }
+	
+	// Increment episode counter
+        learnTracker.nEpisodesPlayed += 1;
+	
+	// Reset LEDs
+	resetLEDs();
+	
+	learnTracker.pastEpisodes.reward2episode.push({
+	    "x": learnTracker.nEpisodesPlayed - 1,
+	    "y": nActionsTaken
+        });
+	
+	nActionsTaken = 0;
+	
+	// Send the learn tracker data to the browser
+	info = learnTracker;
+        socket.emit('info', learnTracker);
+ 	
+	// Send the reward to the qlearner
+        qlearner.stdin.write(JSON.stringify({'state':state,
+					     'reward':reward,
+					     'isTerminal':isTerminal})  
+			     + '\n');
+	
+    } else {
+	
+        // Otherwise we just send data to the browser
+        var penguin = { distance   : relDistance, 
+			state      : [ 10 * state[0],
+				       10 * state[1],
+				       10 * state[2],
+				       10 * state[3] ],
+			ledVals    : [ leds[0].value,
+				       leds[1].value,
+				       leds[2].value,
+				       leds[3].value ],
+			rawState   : rawState, 
+			minReading : minReading, 
+			maxReading : maxReading};
+	
+        // Pass penguin through the socket
+        socket.emit('reading', penguin);
+	
+	// Pass the current state to the qlearner app
+        qlearner.stdin.write(JSON.stringify({'state':state,
+					     'reward':reward,
+					     'isTerminal':0}) + '\n');
+	
+    }
+};
+    
+
 // When the board is ready, fire up this callback function
 board.on("ready", function() {
 
@@ -207,9 +264,10 @@ board.on("ready", function() {
   sensorYellow = new five.Sensor({pin: "A1"});
   sensorRed    = new five.Sensor({pin: "A2"});
   sensorBlue   = new five.Sensor({pin: "A3"});
+  sensorEnv    = new five.Sensor({pin: "A4"});
 
   // Collect the sensors into an array
-  sensors = [sensorGreen, sensorYellow, sensorRed, sensorBlue ]
+  sensors = [sensorGreen, sensorYellow, sensorRed, sensorBlue, sensorEnv ]
 
   // Indicate where the LEDs sit on the board
   ledGreen  = new five.Led({ pin: 11 })
@@ -233,107 +291,18 @@ board.on("ready", function() {
   // We reset the LEDs in case they are lit
   resetLEDs();
 
-  io.sockets.on('connection', function (socket){
+  nActionsTaken = 0;
 
-    var check = setInterval(function(){
+  io.sockets.on('connection', function(newSocket) {
 
-      // Log the state we're in
-      console.log(state);
+    socket = newSocket;
 
-      // Get the sum of the intensities
-      sum = state[0] + state[1] + state[2] + state[3];
-
-      // How close are we to the goal
-      relDistance = Math.abs( (goal - sum) / goal );
- 
-      // Episode index for keeping track of the past 10 episodes
-      episodeIdx = learnTracker.nEpisodesPlayed % 10;
-
-      var trialIdx = learnTracker.pastEpisodes.distanceMat.length
-
-      // Add data to the learn tracker about the currently running episode
-      learnTracker.pastEpisodes.distanceMat.push({
-        "x" : trialIdx,
-        "y" : relDistance
-      });
- 
-      // Every time the learner hits the LED wall, reward is decreased
-      if ( ledBoundaryExceeded ) {
-	//reward += -2 / 100;
-	ledBoundaryExceeded = 0;
-      }
-
-      if ( trialIdx >= 100 || relDistance < relDistanceTh ) {
-
-        // How many actions were taken? 
-        var nActionsTaken = learnTracker
-	      .pastEpisodes
-	      .distanceMat
-	      .length
-
-        // We conclude by first computing the reward of the episode
-	if ( relDistance < relDistanceTh ) {
-	  reward += 1; //getReward(nActionsTaken);
-	}
-
-	// Increment cumulative rewards
-        learnTracker.cumulativeReward += reward;
-
-	// Increment episode counter
-        learnTracker.nEpisodesPlayed += 1;
-	
-        // Get the new episode index 
-        episodeIdx = learnTracker.nEpisodesPlayed % 10;
-
-	// Erase the learn tracker data for the next episode index
-        learnTracker.pastEpisodes.distanceMat = [];
-
-	// Reset LEDs
-	resetLEDs();
-
-	learnTracker.pastEpisodes.reward2episode.push({
-	    "x": learnTracker.nEpisodesPlayed - 1,
-	    "y": learnTracker.cumulativeReward / learnTracker.nEpisodesPlayed
-        });
-
-	// Send the learn tracker data to the browser
-        socket.emit('info', learnTracker);
-
-	// Send the reward to the qlearner
-        qlearner.stdin.write('REWARD ' + reward + '\nNEW_EPISODE\n');
-
-	reward = 0.0
-
-
-      } else {
-
-        // Otherwise we just send data to the browser
-        var penguin = { distance   : relDistance, 
-			state      : state, 
-			rawState   : rawState, 
-			ledVals    : [ leds[0].value, leds[1].value, leds[2].value, leds[3].value ],
-			minReading : minReading, 
-			maxReading : maxReading};
-
-        // Pass penguin through the socket
-        socket.emit('reading', penguin);
-
-	// Pass the current state to the qlearner app
-        qlearner.stdin.write('STATE ' + state[0] + ' ' + state[1] + ' ' + state[2] + ' ' + state[3] + '\n');
-
-      }
-
-    }, 1000.0 / args['updateFreq'] )
+    setTimeout(processStatus, 1000 / args['updateFreq'] );
 
   });
 
   // Update state and raw state
   sensorGreen.on("data", function() {
-    if ( calibrateSensorReadings ) {
-      minReading = 40; //this.value !== null ? this.value : 0;
-      maxReading = minReading + 200;
-      calibrateSensorReadings = 0;
-    }
     rawState[0] = this.value;
     state[0]    = scaledSensorReading(this.value);
   });
@@ -351,6 +320,12 @@ board.on("ready", function() {
   sensorBlue.on("data", function() {
     rawState[3] = this.value;
     state[3]    = scaledSensorReading(this.value);
+  });
+
+  sensorEnv.on("data", function() {
+    minReading = this.value;
+    maxReading = minReading + 200;
+    state[4]   = this.value / 300;
   });
 
 });

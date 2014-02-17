@@ -58,27 +58,27 @@ svg3.append("svg:path")
 
 //setup density plot
 
-var svg4 = d3.select("#distance_plot")
-              .append("svg:svg")
-              .attr("width", distance_plot_w)
-              .attr("height", distance_plot_h)
-              .append("svg:g");
+//var svg4 = d3.select("#distance_plot")
+//              .append("svg:svg")
+//              .attr("width", distance_plot_w)
+//              .attr("height", distance_plot_h)
+//              .append("svg:g");
 
-var xAxis4 = d3.svg.axis()
-                .scale(d3.scale.linear()) //identity scale to make it work
-                .orient("bottom")
+//var xAxis4 = d3.svg.axis()
+//                .scale(d3.scale.linear()) //identity scale to make it work
+//                .orient("bottom")
       
-svg4.append("g")
-    .attr("class","xAxis4")
-    .call(xAxis4)
+//svg4.append("g")
+//    .attr("class","xAxis4")
+//    .call(xAxis4)
 
-var yAxis4 = d3.svg.axis()
-                .scale(d3.scale.linear())
-                .orient("left")
+//var yAxis4 = d3.svg.axis()
+//                .scale(d3.scale.linear())
+//                .orient("left")
 
-svg3.append("g")
-      .attr("class", "yAxis4")
-      .call(yAxis4)
+//svg3.append("g")
+//      .attr("class", "yAxis4")
+//      .call(yAxis4)
 
 
 $(document).ready(function(){
@@ -104,13 +104,11 @@ $(document).ready(function(){
           .text("Num. of episodes played: " + info.nEpisodesPlayed);
       $("#cumulativeReward")
           .text("Cumulative reward: " + info.cumulativeReward);
-      $("#nStatesExplored")
-          .text("Num. of states explored: " + info.nStatesExplored);
       LASTINFO = info;
 
       //svg3 gain
       var x3 = d3.scale.linear().domain([0, info.pastEpisodes.reward2episode.length]).range([20 + margin -5, w]);
-      var y3 = d3.scale.linear().domain([0, 1.0]).range([h - margin, 0 + margin]);
+      var y3 = d3.scale.linear().domain([0, 100.0]).range([h - margin, 0 + margin]);
 
       var xAxis3updater = d3.svg.axis()
                 .scale(x3) 
@@ -132,30 +130,30 @@ $(document).ready(function(){
         .attr("d", line)
 
       //svg4 distances over trials, lines are episodes
-      var x4 = d3.scale.linear().domain([0, 150]).range([0 + margin -5, w]);
-      var y4 = d3.scale.linear().domain([0, 1.0]).range([h - margin, 0 + margin]);
+      //var x4 = d3.scale.linear().domain([0, 150]).range([0 + margin -5, w]);
+      //var y4 = d3.scale.linear().domain([0, 1.0]).range([h - margin, 0 + margin]);
 
 
 
 
-      var xAxis4updater = d3.svg.axis()
-                .scale(x4) 
-                .orient("bottom")
+      //var xAxis4updater = d3.svg.axis()
+      //          .scale(x4) 
+      //          .orient("bottom")
       // var yAxis4updater = d3.svg.axis()
       //           .scale(y4)
       //           .orient("left")
-      svg4.selectAll("g.xAxis4")
-          .call(xAxis4updater)
+      //svg4.selectAll("g.xAxis4")
+      //    .call(xAxis4updater)
       // svg4.selectAll("g.yAxis4")
       //     .attr("transform", "translate(30,0)")
       //     .call(yAxis4updater)
 
-      var line4 = d3.svg.line()
-              .x(function(d,i) { return x4(d.x); })
-              .y(function(d,i) { return y4(d.y); });
-      svg4.append("svg:path")
-            .data([info.pastEpisodes.distanceMat])
-            .attr("d", line4);
+      //var line4 = d3.svg.line()
+      //        .x(function(d,i) { return x4(d.x); })
+      //        .y(function(d,i) { return y4(d.y); });
+      //svg4.append("svg:path")
+      //      .data([info.pastEpisodes.distanceMat])
+      //      .attr("d", line4);
     });
 });
 

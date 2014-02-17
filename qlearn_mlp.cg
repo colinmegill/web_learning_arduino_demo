@@ -2,12 +2,10 @@ description: LED sum reinforcement learner
 
 type: reinforcement-learner
 
-randomInit: True
-
 graph:
 
- - activation: tanh
-   n_in:       4
+ - activation: sigmoid
+   n_in:       5
    n_out:      30
    dropout:    0.2
 
@@ -16,7 +14,7 @@ graph:
    n_out:      30
    dropout:    0.5
 
- - activation: softmax
+ - activation: tanh
    n_in:       30
    n_out:      8
    dropout:    0.5
