@@ -108,7 +108,7 @@ $(document).ready(function(){
 
       //svg3 gain
       var x3 = d3.scale.linear().domain([0, info.pastEpisodes.reward2episode.length]).range([20 + margin -5, w]);
-      var y3 = d3.scale.linear().domain([0, 100.0]).range([h - margin, 0 + margin]);
+      var y3 = d3.scale.linear().domain([0, 1.0]).range([h - margin, 0 + margin]);
 
       var xAxis3updater = d3.svg.axis()
                 .scale(x3) 

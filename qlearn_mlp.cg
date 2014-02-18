@@ -4,17 +4,17 @@ type: reinforcement-learner
 
 graph:
 
- - activation: sigmoid
+ - activation: linrect
    n_in:       5
    n_out:      30
-   dropout:    0.2
+   dropout:    0.0
 
  - activation: linrect
    n_in:       30
    n_out:      30
    dropout:    0.5
 
- - activation: tanh
+ - activation: linear
    n_in:       30
    n_out:      8
    dropout:    0.5

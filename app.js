@@ -35,7 +35,7 @@ var qlearner = spawn('python2.7', [
     '--epsilon'         ,'0.1',
     '--epsilonDecayRate','0.00001',
     '--learnRate'       ,'0.1',
-    '--discountRate'    ,'0.00',
+    '--discountRate'    ,'0.1',
     '--replayMemorySize','1000',
     '--miniBatchSize'   ,'10']) 
 
@@ -178,11 +178,14 @@ var processStatus = function() {
     // How close are we to the goal
     var newRelDistance = Math.abs( (goal - sum) / goal );
     
-    var reward = relDistance - newRelDistance;
+    var reward;
 
-    if ( ledBoundaryExceeded ) {
-      reward = - 0.1;
+    if ( ledBoundaryExceeded || relDistance <= newRelDistance ) {
+      reward = - 1;
       ledBoundaryExceeded = false;
+    } else if ( relDistance < relDistanceTh || relDistance > newRelDistance ) {
+      reward = 1;
+      learnTracker.cumulativeReward += reward;
     }
     
     relDistance = newRelDistance;
@@ -191,15 +194,12 @@ var processStatus = function() {
     
     learnTracker.totalActionsTaken += 1;
     
-    learnTracker.cumulativeReward += reward;
-    
     if ( nActionsTaken >= 100 || relDistance < relDistanceTh ) {
 	
 	var isTerminal;
 	
         // We conclude by first computing the reward of the episode
 	if ( relDistance < relDistanceTh ) {
-	    reward = 1;
             isTerminal = 1;
 	} else {
 	    isTerminal = 0;
@@ -213,7 +213,7 @@ var processStatus = function() {
 	
 	learnTracker.pastEpisodes.reward2episode.push({
 	    "x": learnTracker.nEpisodesPlayed - 1,
-	    "y": nActionsTaken
+	    "y": learnTracker.cumulativeReward / learnTracker.totalActionsTaken
         });
 	
 	nActionsTaken = 0;
@@ -323,9 +323,10 @@ board.on("ready", function() {
   });
 
   sensorEnv.on("data", function() {
-    minReading = this.value;
-    maxReading = minReading + 200;
-    state[4]   = this.value / 300;
+    minReading  = this.value;
+    maxReading  = minReading + 300;
+    rawState[4] = this.value;
+    state[4]    = this.value / 300;
   });
 
 });
